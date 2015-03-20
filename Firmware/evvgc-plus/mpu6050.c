@@ -82,7 +82,7 @@ void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrLow) {
   /* Initialize to zero. */
   memset((void *)pIMU, 0, sizeof(IMUStruct));
   /* Initialize to normalized quaternion. */
-  pIMU->qIMU[0] = 1.0f;
+  pIMU->qIMU.a = fix16_from_int(1);
   /* Calibrate gyroscope on start-up. */
   pIMU->flags  |= IMU_CALIBRATE_GYRO;
 
@@ -116,27 +116,19 @@ void imuCalibrate(PIMUStruct pIMU) {
   if (pIMU->flags & IMU_CALIBRATE_GYRO) {
     if (pIMU->calCounter == 0) {
       /* Reset gyroscope bias. */
-      pIMU->gyroBias[0] = pIMU->gyroData[0];
-      pIMU->gyroBias[1] = pIMU->gyroData[0];
-      pIMU->gyroBias[2] = pIMU->gyroData[0];
+      memcpy((void *)&pIMU->gyroBias, (void *)&pIMU->gyroData, sizeof(pIMU->gyroData));
       pIMU->calCounter++;
       return;
     } else if (pIMU->calCounter < CALIBRATION_COUNTER_MAX) {
       /* Accumulate gyroscope bias. */
-      pIMU->gyroBias[0] += pIMU->gyroData[0];
-      pIMU->gyroBias[1] += pIMU->gyroData[1];
-      pIMU->gyroBias[2] += pIMU->gyroData[2];
+      v3d_add(&pIMU->gyroBias, &pIMU->gyroBias, &pIMU->gyroData);
       pIMU->calCounter++;
       return;
     } else {
       /* Update gyroscope bias. */
-      pIMU->gyroBias[0] /= (float)CALIBRATION_COUNTER_MAX;
-      pIMU->gyroBias[1] /= (float)CALIBRATION_COUNTER_MAX;
-      pIMU->gyroBias[2] /= (float)CALIBRATION_COUNTER_MAX;
-
+      v3d_div_s(&pIMU->gyroBias, &pIMU->gyroBias, fix16_from_int(CALIBRATION_COUNTER_MAX));
       pIMU->calCounter = 0;
       pIMU->flags &= ~IMU_CALIBRATE_GYRO;
-
       g_fCalibrating = FALSE;
     }
   }
@@ -144,26 +136,21 @@ void imuCalibrate(PIMUStruct pIMU) {
   if (pIMU->flags & IMU_CALIBRATE_ACCEL) {
     if (pIMU->calCounter == 0) {
       /* Reset accelerometer bias. */
-      pIMU->accelBias[0] = pIMU->accelData[0];
-      pIMU->accelBias[1] = pIMU->accelData[0];
-      pIMU->accelBias[2] = pIMU->accelData[0] + GRAV;
+      pIMU->accelData.z = fix16_add(pIMU->accelData.z, fix16_from_float(GRAV));
+      memcpy((void *)&pIMU->accelBias, (void *)&pIMU->accelData, sizeof(pIMU->accelData));
       pIMU->calCounter++;
       return;
     } else if (pIMU->calCounter < CALIBRATION_COUNTER_MAX) {
       /* Accumulate accelerometer bias. */
-      pIMU->accelBias[0] += pIMU->accelData[0];
-      pIMU->accelBias[1] += pIMU->accelData[1];
-      pIMU->accelBias[2] += pIMU->accelData[2] + GRAV;
+      pIMU->accelData.z = fix16_add(pIMU->accelData.z, fix16_from_float(GRAV));
+      v3d_add(&pIMU->accelBias, &pIMU->accelBias, &pIMU->accelData);
+      pIMU->calCounter++;
       return;
     } else {
       /* Update accelerometer bias. */
-      pIMU->accelBias[0] /= (float)CALIBRATION_COUNTER_MAX;
-      pIMU->accelBias[1] /= (float)CALIBRATION_COUNTER_MAX;
-      pIMU->accelBias[2] /= (float)CALIBRATION_COUNTER_MAX;
-
+      v3d_div_s(&pIMU->accelBias, &pIMU->accelBias, fix16_from_int(CALIBRATION_COUNTER_MAX));
       pIMU->calCounter = 0;
       pIMU->flags &= ~IMU_CALIBRATE_ACCEL;
-
       g_fCalibrating = FALSE;
     }
   }
@@ -250,6 +237,8 @@ uint8_t mpu6050Init(uint8_t addr) {
 uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   msg_t status = RDY_OK;
   uint8_t id;
+  fix16_t *pAccelData;
+  fix16_t *pGyroData;
 
   /* Set the start register address for bulk data transfer. */
   mpu6050TXData[0] = MPU6050_ACCEL_XOUT_H;
@@ -266,31 +255,34 @@ uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
     return 0;
   }
 
+  pAccelData = (fix16_t *)&pIMU->accelData;
+  pGyroData = (fix16_t *)&pIMU->gyroData;
+
   id = pIMU->axes_conf[0] & IMU_AXIS_ID_MASK;
   if (pIMU->axes_conf[0] & IMU_AXIS_DIR_POS) {
-    pIMU->accelData[id] = ((int16_t)((mpu6050RXData[0]<<8) | mpu6050RXData[1]))*MPU6050_ACCEL_SCALE; /* Accel X */
-    pIMU->gyroData[id]  = ((int16_t)((mpu6050RXData[8]<<8) | mpu6050RXData[9]))*MPU6050_GYRO_SCALE;  /* Gyro X  */
+    pAccelData[id] = fix16_mul(fix16_from_int((mpu6050RXData[0]<<8) | mpu6050RXData[1]), MPU6050_ACCEL_SCALE); /* Accel X */
+    pGyroData[id]  = fix16_mul(fix16_from_int((mpu6050RXData[8]<<8) | mpu6050RXData[9]), MPU6050_GYRO_SCALE);  /* Gyro X  */
   } else {
-    pIMU->accelData[id] = (-1 - (int16_t)((mpu6050RXData[0]<<8) | mpu6050RXData[1]))*MPU6050_ACCEL_SCALE; /* Accel X */
-    pIMU->gyroData[id]  = (-1 - (int16_t)((mpu6050RXData[8]<<8) | mpu6050RXData[9]))*MPU6050_GYRO_SCALE;  /* Gyro X  */
+    pAccelData[id] = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[0]<<8) | mpu6050RXData[1])), MPU6050_ACCEL_SCALE); /* Accel X */
+    pGyroData[id]  = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[8]<<8) | mpu6050RXData[9])), MPU6050_GYRO_SCALE);  /* Gyro X  */
   }
 
   id = pIMU->axes_conf[1] & IMU_AXIS_ID_MASK;
   if (pIMU->axes_conf[1] & IMU_AXIS_DIR_POS) {
-    pIMU->accelData[id] = ((int16_t)((mpu6050RXData[ 2]<<8) | mpu6050RXData[ 3]))*MPU6050_ACCEL_SCALE; /* Accel Y */
-    pIMU->gyroData[id]  = ((int16_t)((mpu6050RXData[10]<<8) | mpu6050RXData[11]))*MPU6050_GYRO_SCALE;  /* Gyro Y  */
+    pAccelData[id] = fix16_mul(fix16_from_int((mpu6050RXData[ 2]<<8) | mpu6050RXData[ 3]), MPU6050_ACCEL_SCALE); /* Accel Y */
+    pGyroData[id]  = fix16_mul(fix16_from_int((mpu6050RXData[10]<<8) | mpu6050RXData[11]), MPU6050_GYRO_SCALE);  /* Gyro Y  */
   } else {
-    pIMU->accelData[id] = (-1 - (int16_t)((mpu6050RXData[ 2]<<8) | mpu6050RXData[ 3]))*MPU6050_ACCEL_SCALE; /* Accel Y */
-    pIMU->gyroData[id]  = (-1 - (int16_t)((mpu6050RXData[10]<<8) | mpu6050RXData[11]))*MPU6050_GYRO_SCALE;  /* Gyro Y  */
+    pAccelData[id] = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[ 2]<<8) | mpu6050RXData[ 3])), MPU6050_ACCEL_SCALE); /* Accel Y */
+    pGyroData[id]  = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[10]<<8) | mpu6050RXData[11])), MPU6050_GYRO_SCALE);  /* Gyro Y  */
   }
 
   id = pIMU->axes_conf[2] & IMU_AXIS_ID_MASK;
   if (pIMU->axes_conf[2] & IMU_AXIS_DIR_POS) {
-    pIMU->accelData[id] = ((int16_t)((mpu6050RXData[ 4]<<8) | mpu6050RXData[ 5]))*MPU6050_ACCEL_SCALE; /* Accel Z */
-    pIMU->gyroData[id]  = ((int16_t)((mpu6050RXData[12]<<8) | mpu6050RXData[13]))*MPU6050_GYRO_SCALE;  /* Gyro Z  */
+    pAccelData[id] = fix16_mul(fix16_from_int((mpu6050RXData[ 4]<<8) | mpu6050RXData[ 5]), MPU6050_ACCEL_SCALE); /* Accel Z */
+    pGyroData[id]  = fix16_mul(fix16_from_int((mpu6050RXData[12]<<8) | mpu6050RXData[13]), MPU6050_GYRO_SCALE);  /* Gyro Z  */
   } else {
-    pIMU->accelData[id] = (-1 - (int16_t)((mpu6050RXData[ 4]<<8) | mpu6050RXData[ 5]))*MPU6050_ACCEL_SCALE; /* Accel Z */
-    pIMU->gyroData[id]  = (-1 - (int16_t)((mpu6050RXData[12]<<8) | mpu6050RXData[13]))*MPU6050_GYRO_SCALE;  /* Gyro Z  */
+    pAccelData[id] = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[ 4]<<8) | mpu6050RXData[ 5])), MPU6050_ACCEL_SCALE); /* Accel Z */
+    pGyroData[id]  = fix16_mul(fix16_from_int(-1 - ((mpu6050RXData[12]<<8) | mpu6050RXData[13])), MPU6050_GYRO_SCALE);  /* Gyro Z  */
   }
 
   return 1;
@@ -311,13 +303,13 @@ void sensorSettingsUpdate(const uint8_t *pNewSettings) {
 /**
  * @brief
  */
-void accelBiasUpdate(PIMUStruct pIMU, const float *pNewSettings) {
-  memcpy((void *)pIMU->accelBias, (void *)pNewSettings, sizeof(pIMU->accelBias));
+void accelBiasUpdate(PIMUStruct pIMU, const v3d *pNewSettings) {
+  memcpy((void *)&pIMU->accelBias, (void *)pNewSettings, sizeof(pIMU->accelBias));
 }
 
 /**
  * @brief
  */
-void gyroBiasUpdate(PIMUStruct pIMU, const float *pNewSettings) {
-	memcpy((void *)pIMU->gyroBias, (void *)pNewSettings, sizeof(pIMU->gyroBias));
+void gyroBiasUpdate(PIMUStruct pIMU, const v3d *pNewSettings) {
+	memcpy((void *)&pIMU->gyroBias, (void *)pNewSettings, sizeof(pIMU->gyroBias));
 }

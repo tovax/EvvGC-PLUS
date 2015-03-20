@@ -5,7 +5,7 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)
-  USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16
+  USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16 -DFIXMATH_NO_CACHE
 endif
 
 # C specific options here (added to USE_OPT).
@@ -63,12 +63,14 @@ endif
 PROJECT = evvgc_plus
 
 # Imported source files and paths
-CHIBIOS = ..
-include $(CHIBIOS)/boards/EVVGC_V1.X/board.mk
-include $(CHIBIOS)/chibios_2.6.7/hal/platforms/STM32F1xx/platform.mk
-include $(CHIBIOS)/chibios_2.6.7/hal/hal.mk
-include $(CHIBIOS)/chibios_2.6.7/ports/GCC/ARMCMx/STM32F1xx/port.mk
-include $(CHIBIOS)/chibios_2.6.7/kernel/kernel.mk
+SRCDIR = ..
+include $(SRCDIR)/boards/EVVGC_V1.X/board.mk
+include $(SRCDIR)/chibios_2.6.7/hal/platforms/STM32F1xx/platform.mk
+include $(SRCDIR)/chibios_2.6.7/hal/hal.mk
+include $(SRCDIR)/chibios_2.6.7/ports/GCC/ARMCMx/STM32F1xx/port.mk
+include $(SRCDIR)/chibios_2.6.7/kernel/kernel.mk
+include $(SRCDIR)/libraries/libfixmath/fixmath.mk
+include $(SRCDIR)/libraries/libfixmatrix/fixmatrix.mk
 
 # Define linker script file here
 ifeq ($(USE_USB_BL),yes)
@@ -86,6 +88,8 @@ CSRC = $(PORTSRC) \
        $(HALSRC) \
        $(PLATFORMSRC) \
        $(BOARDSRC) \
+       $(FIXMATHSRC) \
+       $(FIXMATRIXSRC) \
        attitude.c \
        eeprom.c \
        main.c \
@@ -123,7 +127,8 @@ TCPPSRC =
 ASMSRC = $(PORTASM)
 
 INCDIR = $(PORTINC) $(KERNINC) $(TESTINC) \
-         $(HALINC) $(PLATFORMINC) $(BOARDINC)
+         $(HALINC) $(PLATFORMINC) $(BOARDINC) \
+         $(FIXMATHINC) $(FIXMATRIXINC)
 
 #
 # Project, sources and paths
@@ -213,5 +218,5 @@ ULIBS = -lm
 # End of user defines
 ##############################################################################
 
-RULESPATH = $(CHIBIOS)/chibios_2.6.7/ports/GCC/ARMCMx
+RULESPATH = $(SRCDIR)/chibios_2.6.7/ports/GCC/ARMCMx
 include $(RULESPATH)/rules.mk

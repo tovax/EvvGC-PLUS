@@ -174,7 +174,7 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     }
     break;
   case 'a': /* Outputs accelerometer data; */
-    memcpy((void *)pMsg->data, (void *)g_IMU1.accelData, sizeof(g_IMU1.accelData));
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.accelData, sizeof(g_IMU1.accelData));
     pMsg->size = sizeof(g_IMU1.accelData) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
@@ -203,7 +203,7 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case 'g': /* Outputs gyroscope data; */
-    memcpy((void *)pMsg->data, (void *)g_IMU1.gyroData, sizeof(g_IMU1.gyroData));
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.gyroData, sizeof(g_IMU1.gyroData));
     pMsg->size = sizeof(g_IMU1.gyroData) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
@@ -239,7 +239,7 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case 'r': /* Outputs camera attitude data; */
-    memcpy((void *)pMsg->data, (void *)g_IMU1.qIMU, sizeof(g_IMU1.qIMU));
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.qIMU, sizeof(g_IMU1.qIMU));
     pMsg->size = sizeof(g_IMU1.qIMU) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;

@@ -17,6 +17,9 @@
 #ifndef MPU6050_H_
 #define MPU6050_H_
 
+#include "fixvector3d.h"
+#include "fixquat.h"
+
 #define MPU6050_I2C_ADDR_A0_LOW     0x68
 #define MPU6050_I2C_ADDR_A0_HIGH    0x69
 
@@ -42,20 +45,24 @@
 #define MPU6050_PWR_MGMT_1          0x6B
 
 /* Sensor scales */
-//#define MPU6050_GYRO_SCALE          (1.0f / 131.0f) //  250 deg/s
-//#define MPU6050_GYRO_SCALE          (1.0f /  65.5f) //  500 deg/s
-#define MPU6050_GYRO_SCALE          (1.0f /  32.8f) // 1000 deg/s
-//#define MPU6050_GYRO_SCALE          (1.0f /  16.4f) // 2000 deg/s
+//#define MPU6050_GYRO_SCALE          F16(1.0f / 131.0f) //  250 deg/s
+//#define MPU6050_GYRO_SCALE          F16(1.0f /  65.5f) //  500 deg/s
+#define MPU6050_GYRO_SCALE          F16(1.0f /  32.8f) // 1000 deg/s
+//#define MPU6050_GYRO_SCALE          F16(1.0f /  16.4f) // 2000 deg/s
 
-#define GRAV                        9.81
-//#define MPU6050_ACCEL_SCALE         (GRAV / 16384.0f) //  2G
-//#define MPU6050_ACCEL_SCALE         (GRAV /  8192.0f) //  4G
-#define MPU6050_ACCEL_SCALE         (GRAV /  4096.0f) //  8G
-//#define MPU6050_ACCEL_SCALE         (GRAV /  2048.0f) // 16G
+#define GRAV                        (9.81)
+//#define MPU6050_ACCEL_SCALE         F16(GRAV / 16384.0f) //  2G
+//#define MPU6050_ACCEL_SCALE         F16(GRAV /  8192.0f) //  4G
+#define MPU6050_ACCEL_SCALE         F16(GRAV /  4096.0f) //  8G
+//#define MPU6050_ACCEL_SCALE         F16(GRAV /  2048.0f) // 16G
 
 #define IMU_CALIBRATE_GYRO          0x01
 #define IMU_CALIBRATE_ACCEL         0x02
 #define IMU_CALIBRATE_MASK          0x03
+
+#define IMU_AXIS_ID_X               0x00
+#define IMU_AXIS_ID_Y               0x01
+#define IMU_AXIS_ID_Z               0x02
 
 #define IMU_AXIS_DIR_POS            0x08
 #define IMU_AXIS_ID_MASK            0x07
@@ -69,18 +76,18 @@
 #define IMU2_CONF_MASK              0xF0
 
 typedef struct tagIMUStruct {
-  float accelData[3];     /* Accelerometer data.             */
-  float gyroData[3];      /* Gyroscope data.                 */
-  float accelBias[3];     /* Accelerometer bias.             */
-  float gyroBias[3];      /* Gyroscope bias.                 */
-  float accelFiltered[3]; /* Filtered accelerometer data.    */
-  float grotFiltered[3];  /* Filtered direction of gravity.  */
-  float qIMU[4];          /* Attitude quaternion of the IMU. */
-  float rpy[3];           /* Attitude in Euler angles.       */
-  uint8_t addr;           /* I2C address of the chip.        */
-  uint8_t axes_conf[3];   /* Configuration of IMU axes.      */
-  uint16_t calCounter;    /* Calibration counter             */
-  uint16_t flags;         /* Flags.                          */
+  v3d accelData;        /* Accelerometer data.             */
+  v3d gyroData;         /* Gyroscope data.                 */
+  v3d accelBias;        /* Accelerometer bias.             */
+  v3d gyroBias;         /* Gyroscope bias.                 */
+  v3d accelFiltered;    /* Filtered accelerometer data.    */
+  v3d grotFiltered;     /* Filtered direction of gravity.  */
+  v3d rpy;              /* Attitude in Euler angles.       */
+  qf16 qIMU;            /* Attitude quaternion of the IMU. */
+  uint8_t axes_conf[3]; /* Configuration of IMU axes.      */
+  uint8_t addr;         /* I2C address of the chip.        */
+  uint16_t calCounter;  /* Calibration counter             */
+  uint16_t flags;       /* Flags.                          */
 } __attribute__((packed)) IMUStruct, *PIMUStruct;
 
 /* IMU data structure. */
@@ -97,8 +104,8 @@ extern "C" {
   void imuCalibrate(PIMUStruct pIMU);
   uint8_t mpu6050Init(uint8_t addr);
   uint8_t mpu6050GetNewData(PIMUStruct pIMU);
-  void accelBiasUpdate(PIMUStruct pIMU, const float *pNewSettings);
-  void gyroBiasUpdate(PIMUStruct pIMU, const float *pNewSettings);
+  void accelBiasUpdate(PIMUStruct pIMU, const v3d *pNewSettings);
+  void gyroBiasUpdate(PIMUStruct pIMU, const v3d *pNewSettings);
   void sensorSettingsUpdate(const uint8_t *pNewSettings);
 #ifdef __cplusplus
 }
