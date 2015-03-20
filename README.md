@@ -4,10 +4,13 @@
 **FEATURES of EvvGC-PLUS:**
 * EvvGC-PLUS firmware is based on [ChibiOS/RT](http://chibios.org "ChibiOS Homepage") real time operating system (**RTOS**) for easy multitasking.
 * ChibiOS/RT hardware abstraction layer (**HAL**) is used for efficient, usually DMA based control of the STM32 peripherals.
-* Quaternion based attitude estimation loop runs at 667 Hz.
+* **Fixed point math** libraries ([libfixmath](https://code.google.com/p/libfixmath/ "libfixmath Homepage") and [libfixmatrix](https://github.com/PetteriAimonen/libfixmatrix/ "libfixmatrix Homepage")) are used to increase calculation speed when two IMUs are used.
+* Quaternion based attitude estimation loop runs at **667** Hz.
 * Motor driving efficiency is increased by ~14% using third harmonic injection technique.
 * Any orientation of the sensor is possible.
+* Communication with **two sensors** is enabled.
 * PID controller is based on motor speed.
+* Feed forward is used to improve disturbance rejection.
 * EvvGC-PLUS configurator is written using [Qt framework](http://qt-project.org "Qt Homepage").
 * [QCustomPlot](http://www.qcustomplot.com "QCustomPlot Homepage") is used for easy plotting and data visualization.
 * Dedicated thread is used for serial communications.
