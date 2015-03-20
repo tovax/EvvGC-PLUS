@@ -60,7 +60,7 @@ endif
 #
 
 # Define project name here
-PROJECT = evvgc_plus
+PROJECT = evvgc_plus_fix16
 
 # Imported source files and paths
 SRCDIR = ..

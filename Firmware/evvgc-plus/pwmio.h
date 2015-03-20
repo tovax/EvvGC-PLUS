@@ -17,6 +17,10 @@
 #ifndef PWMIO_H_
 #define PWMIO_H_
 
+#include "fix16.h"
+
+static const fix16_t fix16_two_pi = 0x0006487F; /*!< fix16_t value of 2*PI */
+
 /**
  * Output channels.
  */
@@ -86,7 +90,7 @@ extern int16_t g_inputValues[5];
 extern "C" {
 #endif
   void pwmOutputStart(void);
-  void pwmOutputUpdate(const uint8_t channel_id, float cmd);
+  void pwmOutputUpdate(const uint8_t channel_id, fix16_t cmd);
   void pwmOutputSettingsUpdate(const PPWMOutputStruct pNewSettings);
   void mixedInputStart(void);
   void mixedInputSettingsUpdate(const PMixedInputStruct pNewSettings);

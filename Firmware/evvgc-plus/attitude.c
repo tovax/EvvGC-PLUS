@@ -43,13 +43,20 @@
 #define ACCEL_TAU                 0.1f
 #define INPUT_SIGNAL_ALPHA        266.7f
 
-#define MODE_FOLLOW_DEAD_BAND     F16(M_PI / 36.0f)
+#define MODE_FOLLOW_DEAD_BAND     F16( M_PI / 36.0f )
 
-#define MOTOR_STEP_LIMIT_MAX      F16(M_PI / 45.0f)
-#define MOTOR_STEP_LIMIT_MIN      F16(M_PI /-45.0f)
+#define MOTOR_STEP_LIMIT_MAX      F16( M_PI / 45.0f )
+#define MOTOR_STEP_LIMIT_MIN      F16( M_PI /-45.0f )
 
-#define GRAV_LIMIT_LOW            F16(9.81f * 0.6f)
-#define GRAV_LIMIT_HIGH           F16(9.81f * 1.4f)
+#define GRAV_LIMIT_LOW            F16( GRAV * 0.8f )
+#define GRAV_LIMIT_HIGH           F16( GRAV * 1.2f )
+
+#define PID_COEF_SCALE_P          F16( 0.1f )
+#define PID_COEF_SCALE_I          F16( 0.01f )
+#define PID_COEF_SCALE_D          F16( 1.0f )
+#define PID_COEF_SCALE_F          F16( 0.01f )
+
+static const fix16_t fix16_two = 0x00020000; /*!< fix16_t value of 2 */
 
 /* PID controller structure. */
 typedef struct tagPIDStruct {
@@ -129,39 +136,44 @@ static PIDStruct PID[3] = {
  * @return weighted sum of P, I and D actions.
  */
 static float pidControllerApply(uint8_t cmd_id, fix16_t sp, fix16_t pv, fix16_t d) {
-  fix16_t poles2 = fix16_from_int(g_pwmOutput[cmd_id].num_poles >> 1);
+  fix16_t poles2 = fix16_from_int(g_pwmOutput[cmd_id].num_poles / 2);
   /* Distance for the motor to travel: */
-  fix16_t distance = circadjust(sp - pv, fix16_pi);
+  fix16_t distance = circadjust(fix16_sub(sp, pv), fix16_pi);
   /* Convert mechanical distance to electrical distance: */
   distance = fix16_mul(distance, poles2);
   /* If there is a distance to travel then rotate the motor in small steps: */
   fix16_t step = fix16_mul(distance, PID[cmd_id].I);
   step = constrain(step, MOTOR_STEP_LIMIT_MIN, MOTOR_STEP_LIMIT_MAX);
   /* Calculate proportional speed of the motor: */
-  fix16_t speed = distance - PID[cmd_id].prevDistance;
-  step += fix16_mul(speed, PID[cmd_id].P);
+  fix16_t speed = fix16_sub(distance, PID[cmd_id].prevDistance);
+  step = fix16_add(step, fix16_mul(speed, PID[cmd_id].P));
   /* Account for the acceleration of the motor: */
-  step += fix16_mul(speed - PID[cmd_id].prevSpeed, PID[cmd_id].D);
+  fix16_t acceleration = fix16_sub(speed, PID[cmd_id].prevSpeed);
+  step = fix16_add(step, fix16_mul(acceleration, PID[cmd_id].D));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  fix16_t disturbance = fix16_mul(PID[cmd_id].prevDisturbance - d, poles2);
-  step += fix16_mul(disturbance, PID[cmd_id].F);
+  fix16_t disturbance = fix16_mul(fix16_sub(PID[cmd_id].prevDisturbance, d), poles2);
+  step = fix16_add(step, fix16_mul(disturbance, PID[cmd_id].F));
   /* Update offset of the motor: */
-  g_motorOffset[cmd_id] += fix16_div(step, poles2);
+  g_motorOffset[cmd_id] = fix16_add(g_motorOffset[cmd_id], fix16_div(step, poles2));
   /* Wind-up guard limits motor offset range to one mechanical rotation: */
   g_motorOffset[cmd_id] = circadjust(g_motorOffset[cmd_id], fix16_pi);
   /* Update motor position: */
-  float cmd = fix16_to_float(PID[cmd_id].prevCommand + step);
+  fix16_t cmd = fix16_add(PID[cmd_id].prevCommand, step);
   /* Normalize command to -M_PI..M_PI range: */
-  if (cmd < 0.0f) {
-    cmd = fmodf(cmd - M_PI, -M_TWOPI) + M_PI;
-  } else {
-    cmd = fmodf(cmd + M_PI,  M_TWOPI) - M_PI;
+  if (cmd < -fix16_pi) {
+    do {
+      cmd = fix16_add(cmd, fix16_two_pi);
+    } while (cmd < -fix16_pi);
+  } else if (cmd > fix16_pi) {
+    do {
+      cmd = fix16_sub(cmd, fix16_two_pi);
+    } while (cmd > fix16_pi);
   }
   /* Save values for the next iteration: */
   PID[cmd_id].prevDistance    = distance;
   PID[cmd_id].prevSpeed       = speed;
   PID[cmd_id].prevDisturbance = d;
-  PID[cmd_id].prevCommand     = fix16_from_float(cmd);
+  PID[cmd_id].prevCommand     = cmd;
   return cmd;
 }
 
@@ -171,10 +183,10 @@ static float pidControllerApply(uint8_t cmd_id, fix16_t sp, fix16_t pv, fix16_t 
 static void pidUpdateStruct(void) {
   uint8_t i;
   for (i = 0; i < 3; i++) {
-    PID[i].P = fix16_mul(fix16_from_int(g_pidSettings[i].P), fix16_from_float(0.1f));
-    PID[i].I = fix16_mul(fix16_from_int(g_pidSettings[i].I), fix16_from_float(0.01f));
-    PID[i].D = fix16_mul(fix16_from_int(g_pidSettings[i].D), fix16_from_float(1.0f));
-    PID[i].F = fix16_mul(fix16_from_int(g_pidSettings[i].F), fix16_from_float(0.01f));
+    PID[i].P = fix16_mul(fix16_from_int(g_pidSettings[i].P), PID_COEF_SCALE_P);
+    PID[i].I = fix16_mul(fix16_from_int(g_pidSettings[i].I), PID_COEF_SCALE_I);
+    PID[i].D = fix16_mul(fix16_from_int(g_pidSettings[i].D), PID_COEF_SCALE_D);
+    PID[i].F = fix16_mul(fix16_from_int(g_pidSettings[i].F), PID_COEF_SCALE_F);
     if (g_pidSettings[i].I == 0) {
       g_motorOffset[i] = 0;
     }
@@ -208,16 +220,19 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
   fix16_t R13, R11, R12, R23, R33;
   fix16_t qCs = fix16_mul(q->c, q->c);
 
-  R11 = qCs + fix16_mul(q->d, q->d);
-  R11 = fix16_one - fix16_mul(R11, fix16_from_int(2));
-  R12 = fix16_mul(q->a, q->d) + fix16_mul(q->b, q->c);
-  R12 = fix16_mul(R12, fix16_from_int(2));
-  R13 = fix16_mul(q->a, q->c) - fix16_mul(q->b, q->d);
-  R13 = fix16_mul(R13, fix16_from_int(2));
-  R23 = fix16_mul(q->a, q->b) + fix16_mul(q->c, q->d);
-  R23 = fix16_mul(R23, fix16_from_int(2));
-  R33 = qCs + fix16_mul(q->b, q->b);
-  R33 = fix16_one - fix16_mul(R33, fix16_from_int(2));
+  R11 = fix16_add(qCs, fix16_mul(q->d, q->d));
+  R11 = fix16_sub(fix16_one, fix16_mul(R11, fix16_two));
+  R12 = fix16_mul(q->a, q->d);
+  R12 = fix16_add(R12, fix16_mul(q->b, q->c));
+  R12 = fix16_mul(R12, fix16_two);
+  R13 = fix16_mul(q->a, q->c);
+  R13 = fix16_sub(R13, fix16_mul(q->b, q->d));
+  R13 = fix16_mul(R13, fix16_two);
+  R23 = fix16_mul(q->a, q->b);
+  R23 = fix16_add(R23, fix16_mul(q->c, q->d));
+  R23 = fix16_mul(R23, fix16_two);
+  R33 = fix16_add(qCs, fix16_mul(q->b, q->b));
+  R33 = fix16_sub(fix16_one, fix16_mul(R33, fix16_two));
 
   rpy->y = fix16_asin (R13);   // roll always between -pi/2 to pi/2
   rpy->z = fix16_atan2(R12, R11);
@@ -230,7 +245,6 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
  * @brief
  */
 void attitudeInit(void) {
-  memset((void *)PID, 0, sizeof(PID));
   pidUpdateStruct();
   accelKp = fix16_from_float(0.02f / FIXED_DT_STEP);
   accelKi = fix16_from_float(0.0002f);
@@ -256,13 +270,16 @@ void attitudeUpdate(PIMUStruct pIMU) {
 
   if ((mag > GRAV_LIMIT_LOW) && (mag < GRAV_LIMIT_HIGH)) {
     // Rotate gravity to body frame and cross with accelerometer data.
-    tmp.x = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.d) - fix16_mul(pIMU->qIMU.a, pIMU->qIMU.c);
-    tmp.y = fix16_mul(pIMU->qIMU.c, pIMU->qIMU.d) + fix16_mul(pIMU->qIMU.a, pIMU->qIMU.b);
-    tmp.z = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.b) + fix16_mul(pIMU->qIMU.c, pIMU->qIMU.c);
-    v3d_mul_s(&tmp, &tmp, fix16_from_int(2));
+    tmp.x = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.d);
+    tmp.x = fix16_sub(tmp.x, fix16_mul(pIMU->qIMU.a, pIMU->qIMU.c));
+    tmp.y = fix16_mul(pIMU->qIMU.c, pIMU->qIMU.d);
+    tmp.y = fix16_add(tmp.y, fix16_mul(pIMU->qIMU.a, pIMU->qIMU.b));
+    tmp.z = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.b);
+    tmp.z = fix16_add(tmp.z, fix16_mul(pIMU->qIMU.c, pIMU->qIMU.c));
+    v3d_mul_s(&tmp, &tmp, fix16_two);
     tmp.x = -tmp.x;
     tmp.y = -tmp.y;
-    tmp.z = tmp.z - fix16_one;
+    tmp.z = fix16_sub(tmp.z, fix16_one);
 
     // Apply smoothing to accel values, to reduce vibration noise before main calculations.
     accelFilterApply(&pIMU->accelData, &pIMU->accelFiltered);
@@ -283,10 +300,21 @@ void attitudeUpdate(PIMUStruct pIMU) {
   v3d_mul_s(&tmp, &accelErr, accelKi);
   v3d_add(&pIMU->gyroBias, &pIMU->gyroBias, &tmp);
 
-  dq.a = -fix16_mul(pIMU->qIMU.b, pIMU->gyroData.x) - fix16_mul(pIMU->qIMU.c, pIMU->gyroData.y) - fix16_mul(pIMU->qIMU.d, pIMU->gyroData.z);
-  dq.b =  fix16_mul(pIMU->qIMU.a, pIMU->gyroData.x) - fix16_mul(pIMU->qIMU.d, pIMU->gyroData.y) + fix16_mul(pIMU->qIMU.c, pIMU->gyroData.z);
-  dq.c =  fix16_mul(pIMU->qIMU.d, pIMU->gyroData.x) + fix16_mul(pIMU->qIMU.a, pIMU->gyroData.y) - fix16_mul(pIMU->qIMU.b, pIMU->gyroData.z);
-  dq.d = -fix16_mul(pIMU->qIMU.c, pIMU->gyroData.x) + fix16_mul(pIMU->qIMU.b, pIMU->gyroData.y) + fix16_mul(pIMU->qIMU.a, pIMU->gyroData.z);
+  // Calculate derivative of the attitude quaternion.
+  dq.a = fix16_mul(pIMU->qIMU.b, pIMU->gyroData.x);
+  dq.a = fix16_add(dq.a, fix16_mul(pIMU->qIMU.c, pIMU->gyroData.y));
+  dq.a = fix16_add(dq.a, fix16_mul(pIMU->qIMU.d, pIMU->gyroData.z));
+  dq.a = -dq.a;
+  dq.b = fix16_mul(pIMU->qIMU.a, pIMU->gyroData.x);
+  dq.b = fix16_sub(dq.b, fix16_mul(pIMU->qIMU.d, pIMU->gyroData.y));
+  dq.b = fix16_add(dq.b, fix16_mul(pIMU->qIMU.c, pIMU->gyroData.z));
+  dq.c = fix16_mul(pIMU->qIMU.d, pIMU->gyroData.x);
+  dq.c = fix16_add(dq.c, fix16_mul(pIMU->qIMU.a, pIMU->gyroData.y));
+  dq.c = fix16_sub(dq.c, fix16_mul(pIMU->qIMU.b, pIMU->gyroData.z));
+  dq.d = fix16_mul(pIMU->qIMU.c, pIMU->gyroData.x);
+  dq.d = fix16_sub(dq.d, fix16_mul(pIMU->qIMU.b, pIMU->gyroData.y));
+  dq.d = fix16_sub(dq.d, fix16_mul(pIMU->qIMU.a, pIMU->gyroData.z));
+  dq.d = -dq.d;
   qf16_mul_s(&dq, &dq, fix16_from_float(FIXED_DT_STEP*DEG2RAD*0.5f));
 
   /* Update attitude quaternion. */
@@ -312,13 +340,14 @@ void cameraRotationUpdate(void) {
 
     if (g_modeSettings[i].mode_id & INPUT_MODE_FOLLOW) {
       /* Calculate offset of the gimbal: */
-      coef = fix16_deg_to_rad(fix16_from_int(g_modeSettings[i].offset)) - g_motorOffset[i];
+      coef = fix16_deg_to_rad(fix16_from_int(g_modeSettings[i].offset));
+      coef = fix16_sub(coef, g_motorOffset[i]);
       if (coef > MODE_FOLLOW_DEAD_BAND) {
-        coef -= MODE_FOLLOW_DEAD_BAND;
+        coef = fix16_sub(coef, MODE_FOLLOW_DEAD_BAND);
         /* Convert to speed: */
         coef = fix16_div(coef, fix16_from_float(INPUT_SIGNAL_ALPHA*FIXED_DT_STEP));
       } else if (coef < -MODE_FOLLOW_DEAD_BAND) {
-        coef += MODE_FOLLOW_DEAD_BAND;
+        coef = fix16_add(coef, MODE_FOLLOW_DEAD_BAND);
         /* Convert to speed: */
         coef = fix16_div(coef, fix16_from_float(INPUT_SIGNAL_ALPHA*FIXED_DT_STEP));
       } else {
@@ -339,24 +368,26 @@ void cameraRotationUpdate(void) {
 
       if (g_modeSettings[i].mode_id & INPUT_MODE_SPEED) {
         /* Calculate speed from RC input data: */
-        tmp = fix16_mul(speedLimit, fix16_from_int(2));
+        tmp  = fix16_mul(speedLimit, fix16_two);
         coef = fix16_mul(coef, tmp);
-        tmp = fix16_div(coef - camRotSpeedPrev[i], fix16_from_float(INPUT_SIGNAL_ALPHA));
-        camRotSpeedPrev[i] += tmp;
+        tmp  = fix16_div(fix16_sub(coef, camRotSpeedPrev[i]), fix16_from_float(INPUT_SIGNAL_ALPHA));
+        camRotSpeedPrev[i] = fix16_add(camRotSpeedPrev[i], tmp);
         coef = camRotSpeedPrev[i];
       } else { /* INPUT_MODE_ANGLE */
         /* Calculate angle from input data: */
         coef = fix16_mul(coef, fix16_from_int(g_modeSettings[i].max_angle - g_modeSettings[i].min_angle));
-        coef += fix16_div(fix16_from_int(g_modeSettings[i].max_angle + g_modeSettings[i].min_angle), fix16_from_int(2));
+        tmp  = fix16_div(fix16_from_int(g_modeSettings[i].max_angle + g_modeSettings[i].min_angle), fix16_two);
+        coef = fix16_add(coef, tmp);
         coef = constrain(coef, fix16_from_int(g_modeSettings[i].min_angle), fix16_from_int(g_modeSettings[i].max_angle));
         coef = fix16_deg_to_rad(coef);
 
         /* Convert angle difference to speed: */
-        coef = fix16_div(coef - camRot[i], fix16_from_float(INPUT_SIGNAL_ALPHA * FIXED_DT_STEP));
+        coef = fix16_div(fix16_sub(coef, camRot[i]), fix16_from_float(INPUT_SIGNAL_ALPHA*FIXED_DT_STEP));
       }
     }
     coef = constrain(coef, -speedLimit, speedLimit);
-    camRot[i] += fix16_mul(coef, fix16_from_float(FIXED_DT_STEP));
+    coef = fix16_mul(coef, fix16_from_float(FIXED_DT_STEP));
+    camRot[i] = fix16_add(camRot[i], coef);
     camRot[i] = circadjust(camRot[i], fix16_pi);
   }
 }
@@ -365,24 +396,30 @@ void cameraRotationUpdate(void) {
  * @brief
  */
 void actuatorsUpdate(void) {
-  uint8_t i;
-  for (i = 0; i < PWM_OUT_CMD_DISABLED; i++) {
-    uint8_t cmd_id = g_pwmOutput[i].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
-    float cmd = 0.0f;
-    switch (cmd_id) {
-      case PWM_OUT_CMD_PITCH:
-        cmd = pidControllerApply(cmd_id, camRot[PWM_OUT_CMD_PITCH], g_IMU1.rpy.x, g_IMU2.rpy.x);
-        break;
-      case PWM_OUT_CMD_ROLL:
-        cmd = pidControllerApply(cmd_id, camRot[PWM_OUT_CMD_ROLL], g_IMU1.rpy.y, g_IMU2.rpy.y);
-        break;
-      case PWM_OUT_CMD_YAW:
-        cmd = pidControllerApply(cmd_id, camRot[PWM_OUT_CMD_YAW], g_IMU1.rpy.z, g_IMU2.rpy.z);
-        break;
-      default:;
-    }
-    pwmOutputUpdate(i, cmd);
+  float cmd = 0.0f;
+  fix16_t *pIMU1rpy = (fix16_t *)&g_IMU1.rpy;
+  fix16_t *pIMU2rpy = (fix16_t *)&g_IMU2.rpy;
+
+  /* Pitch: */
+  uint8_t cmd_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (cmd_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
   }
+  pwmOutputUpdate(PWM_OUT_PITCH, cmd);
+  cmd = 0.0f;
+  /* Roll: */
+  cmd_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (cmd_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
+  }
+  pwmOutputUpdate(PWM_OUT_ROLL, cmd);
+  cmd = 0.0f;
+  /* Yaw: */
+  cmd_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (cmd_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
+  }
+  pwmOutputUpdate(PWM_OUT_YAW, cmd);
 }
 
 /**

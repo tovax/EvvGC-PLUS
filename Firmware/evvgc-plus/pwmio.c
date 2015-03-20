@@ -20,8 +20,9 @@
 #include "pwmio.h"
 #include "misc.h"
 
-#include <math.h>
 #include <string.h>
+
+static const fix16_t fix16_three = 0x00030000; /*!< fix16_t value of 3 */
 
 /**
  * DeadTime range (us) = (0..127) * 1 / 72;
@@ -94,13 +95,13 @@
  * Separation angle between phases.
  */
 #ifndef M_2PI_3
-#define M_2PI_3         (2.0f * M_PI / 3.0f)
+#define M_2PI_3                 0x0002182A  // 2 * PI / 3;
 #endif
 
 /**
  * Amplitude scaling factor for third harmonic injection PWM.
  */
-#define THI_PWM_K       (2.0f / sqrtf(3.0f))
+#define THI_PWM_K               0x0001279A  // 2 / sqrt(3);
 
 /**
  * Local macros for dead time calculation.
@@ -250,7 +251,7 @@ static const ADCConversionGroup adcgrpcfg = {
   NULL,                 /* Error callback function.         */
   /* STM32F1xx dependent part: */
   0,                                      /* CR1.   */
-  0,                                      /* CR2.   */                        
+  0,                                      /* CR2.   */
   ADC_SMPR1_SMP_AN12(ADC_SAMPLE_239P5) |
   ADC_SMPR1_SMP_AN13(ADC_SAMPLE_239P5),   /* SMPR1. */
   0,                                      /* SMPR2. */
@@ -430,18 +431,48 @@ static void pwmOutputDisableYaw(void) {
  * @param  thi - third harmonic injection enable flag.
  * @return none.
  */
-static void pwmOutputCmdTo3PhasePWM(float cmd, uint8_t power, uint8_t thi) {
-  float halfPower = power * PWM_OUT_POWER_1PCT2;
+static void pwmOutputCmdTo3PhasePWM(fix16_t cmd, uint8_t power, uint8_t thi) {
+  fix16_t halfPower = fix16_from_int(power*PWM_OUT_POWER_1PCT2);
+  fix16_t tmp;
   if (thi) {
-    halfPower *= THI_PWM_K;
-    float thirdHarmonic = sinf(cmd * 3.0f) / 6.0f;
-    pwm3PhaseDrv[0] = PWM_OUT_POWER_50PCT + (sinf(cmd) + thirdHarmonic)*halfPower;
-    pwm3PhaseDrv[1] = PWM_OUT_POWER_50PCT + (sinf(cmd + M_2PI_3) + thirdHarmonic)*halfPower;
-    pwm3PhaseDrv[2] = PWM_OUT_POWER_50PCT + (sinf(cmd - M_2PI_3) + thirdHarmonic)*halfPower;
+    halfPower = fix16_mul(halfPower, THI_PWM_K);
+    /* Calculate third harmonic. */
+    fix16_t thirdHarmonic = fix16_mul(cmd, fix16_three);
+    if (thirdHarmonic < -fix16_pi) {
+      do {
+        thirdHarmonic = fix16_add(thirdHarmonic, fix16_two_pi);
+      } while (thirdHarmonic < -fix16_pi);
+    } else if (thirdHarmonic > fix16_pi) {
+      do {
+        thirdHarmonic = fix16_sub(thirdHarmonic, fix16_two_pi);
+      } while (thirdHarmonic > fix16_pi);
+    }
+    thirdHarmonic = fix16_sin(thirdHarmonic);
+    thirdHarmonic = fix16_div(thirdHarmonic, fix16_from_int(6));
+    /* Calculate PWM for three phases. */
+    tmp = fix16_sin(cmd);
+    tmp = fix16_add(tmp, thirdHarmonic);
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[0] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
+    tmp = fix16_sin(fix16_add(cmd, M_2PI_3));
+    tmp = fix16_add(tmp, thirdHarmonic);
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[1] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
+    tmp = fix16_sin(fix16_sub(cmd, M_2PI_3));
+    tmp = fix16_add(tmp, thirdHarmonic);
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[2] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
   } else {
-    pwm3PhaseDrv[0] = PWM_OUT_POWER_50PCT + sinf(cmd)*halfPower;
-    pwm3PhaseDrv[1] = PWM_OUT_POWER_50PCT + sinf(cmd + M_2PI_3)*halfPower;
-    pwm3PhaseDrv[2] = PWM_OUT_POWER_50PCT + sinf(cmd - M_2PI_3)*halfPower;
+    /* Calculate PWM for three phases. */
+    tmp = fix16_sin(cmd);
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[0] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
+    tmp = fix16_sin(fix16_add(cmd, M_2PI_3));
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[1] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
+    tmp = fix16_sin(fix16_sub(cmd, M_2PI_3));
+    tmp = fix16_mul(tmp, halfPower);
+    pwm3PhaseDrv[2] = PWM_OUT_POWER_50PCT + fix16_to_int(tmp);
   }
 }
 
@@ -570,7 +601,7 @@ void pwmOutputStart(void) {
  * @param  cmd - new command to the motor driver.
  * @return none.
  */
-void pwmOutputUpdate(const uint8_t channel_id, float cmd) {
+void pwmOutputUpdate(const uint8_t channel_id, fix16_t cmd) {
   switch (channel_id) {
   case PWM_OUT_PITCH:
     if ((g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK) == PWM_OUT_CMD_DISABLED) {
