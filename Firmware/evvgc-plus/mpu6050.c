@@ -30,8 +30,8 @@
 #include "mpu6050.h"
 #include "misc.h"
 
-#define MPU6050_RX_BUF_SIZE   0x0E
-#define MPU6050_TX_BUF_SIZE   0x05
+#define MPU6050_RX_BUF_SIZE       0x0E
+#define MPU6050_TX_BUF_SIZE       0x05
 
 /* I2C read transaction time-out in milliseconds. */
 #define MPU6050_READ_TIMEOUT_MS   0x01
@@ -75,26 +75,26 @@ static uint8_t mpu6050TXData[MPU6050_TX_BUF_SIZE];
 /**
  * @brief  Initialization function of IMU data structure.
  * @param  pIMU - pointer to IMU data structure;
- * @param  fAddrLow - IMU address pin A0 is pulled low flag.
+ * @param  fAddrHigh - IMU address pin A0 is pulled high flag.
  */
-void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrLow) {
+void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrHigh) {
   uint8_t i;
   /* Initialize to zero. */
   memset((void *)pIMU, 0, sizeof(IMUStruct));
-  /* Initialize to normalized quaternion. */
-  pIMU->qIMU.a = fix16_from_int(1);
+  /* Initialize attitude quaternion to unity quaternion. */
+  pIMU->qIMU.a = fix16_one;
   /* Calibrate gyroscope on start-up. */
-  pIMU->flags  |= IMU_CALIBRATE_GYRO;
+  pIMU->flags |= IMU_CALIBRATE_GYRO;
 
-  if (fAddrLow) {
-    pIMU->addr = MPU6050_I2C_ADDR_A0_LOW;
-    for (i = 0; i < 3; i++) {
-      pIMU->axes_conf[i] = g_sensorSettings[i] & IMU1_CONF_MASK;
-    }
-  } else {
+  if (fAddrHigh) {
     pIMU->addr = MPU6050_I2C_ADDR_A0_HIGH;
     for (i = 0; i < 3; i++) {
       pIMU->axes_conf[i] = g_sensorSettings[i] >> 4;
+    }
+  } else {
+    pIMU->addr = MPU6050_I2C_ADDR_A0_LOW;
+    for (i = 0; i < 3; i++) {
+      pIMU->axes_conf[i] = g_sensorSettings[i] & IMU1_CONF_MASK;
     }
   }
 }

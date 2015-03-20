@@ -51,6 +51,7 @@
 //#define MPU6050_GYRO_SCALE          F16(1.0f /  16.4f) // 2000 deg/s
 
 #define GRAV                        (9.81)
+
 //#define MPU6050_ACCEL_SCALE         F16(GRAV / 16384.0f) //  2G
 //#define MPU6050_ACCEL_SCALE         F16(GRAV /  8192.0f) //  4G
 #define MPU6050_ACCEL_SCALE         F16(GRAV /  4096.0f) //  8G
@@ -99,7 +100,7 @@ extern uint8_t g_sensorSettings[3];
 #ifdef __cplusplus
 extern "C" {
 #endif
-  void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrLow);
+  void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrHigh);
   void imuCalibrationStart(PIMUStruct pIMU, uint8_t flags);
   void imuCalibrate(PIMUStruct pIMU);
   uint8_t mpu6050Init(uint8_t addr);

@@ -166,8 +166,8 @@ int main(void) {
   rccEnableCRC(FALSE);
 
   /* Initialize IMU data structure. */
-  imuStructureInit(&g_IMU1, TRUE);
-  imuStructureInit(&g_IMU2, FALSE);
+  imuStructureInit(&g_IMU1, FALSE); // IMU1 on low address;
+  imuStructureInit(&g_IMU2, TRUE);  // IMU2 on high address;
 
   /* Loads settings from external EEPROM chip.
      WARNING! If MPU6050 sensor is not connected to the I2C bus, there
