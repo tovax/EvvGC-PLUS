@@ -15,7 +15,6 @@
 */
 
 #include "ch.h"
-#include "hal.h"
 
 #include "pwmio.h"
 #include "misc.h"
@@ -601,7 +600,7 @@ void pwmOutputStart(void) {
  * @param  cmd - new command to the motor driver.
  * @return none.
  */
-void pwmOutputUpdate(const uint8_t channel_id, fix16_t cmd) {
+void pwmOutputUpdate(uint8_t channel_id, fix16_t cmd) {
   switch (channel_id) {
   case PWM_OUT_PITCH:
     if ((g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK) == PWM_OUT_CMD_DISABLED) {
@@ -632,6 +631,16 @@ void pwmOutputUpdate(const uint8_t channel_id, fix16_t cmd) {
     break;
   default:;
   }
+}
+
+/**
+ * @brief  Disables all output channels.
+ * @return none.
+ */
+void pwmOutputDisableAll(void) {
+  pwmOutputDisablePitch();
+  pwmOutputDisableRoll();
+  pwmOutputDisableYaw();
 }
 
 /**

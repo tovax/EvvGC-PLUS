@@ -17,6 +17,8 @@
 #ifndef MPU6050_H_
 #define MPU6050_H_
 
+#include "hal.h"
+
 #include "fixvector3d.h"
 #include "fixquat.h"
 
@@ -57,10 +59,6 @@
 #define MPU6050_ACCEL_SCALE         F16(GRAV /  4096.0f) //  8G
 //#define MPU6050_ACCEL_SCALE         F16(GRAV /  2048.0f) // 16G
 
-#define IMU_CALIBRATE_GYRO          0x01
-#define IMU_CALIBRATE_ACCEL         0x02
-#define IMU_CALIBRATE_MASK          0x03
-
 #define IMU_AXIS_ID_X               0x00
 #define IMU_AXIS_ID_Y               0x01
 #define IMU_AXIS_ID_Z               0x02
@@ -85,24 +83,30 @@ typedef struct tagIMUStruct {
   v3d grotFiltered;     /* Filtered direction of gravity.  */
   v3d rpy;              /* Attitude in Euler angles.       */
   qf16 qIMU;            /* Attitude quaternion of the IMU. */
+  uint32_t clbrCounter; /* Calibration counter             */
   uint8_t axes_conf[3]; /* Configuration of IMU axes.      */
   uint8_t addr;         /* I2C address of the chip.        */
-  uint16_t calCounter;  /* Calibration counter             */
-  uint16_t flags;       /* Flags.                          */
 } __attribute__((packed)) IMUStruct, *PIMUStruct;
+
+typedef struct tagI2CErrorStruct {
+  i2cflags_t last_i2c_error;
+  uint32_t i2c_error_counter;
+} __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
 
 /* IMU data structure. */
 extern IMUStruct g_IMU1;
 extern IMUStruct g_IMU2;
 /* Packed sensor settings. */
 extern uint8_t g_sensorSettings[3];
+/* I2C error info structure. */
+extern I2CErrorStruct g_i2cErrorInfo;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
   void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrHigh);
-  void imuCalibrationStart(PIMUStruct pIMU, uint8_t flags);
-  void imuCalibrate(PIMUStruct pIMU);
+  void imuCalibrationSet(uint8_t flags);
+  uint8_t imuCalibrate(PIMUStruct pIMU, uint8_t fCalibrateAccel);
   uint8_t mpu6050Init(uint8_t addr);
   uint8_t mpu6050GetNewData(PIMUStruct pIMU);
   void accelBiasUpdate(PIMUStruct pIMU, const v3d *pNewSettings);

@@ -18,50 +18,13 @@
 #define MISC_H_
 
 #include "hal.h"
-#include <math.h>
-
-#define RAD2DEG     ( 180.0f / M_PI )
-#define DEG2RAD     ( M_PI / 180.0f )
 
 #define constrain(val,min,max)  ((val)<(min)?(min):((val)>(max)?(max):(val)))
 #define circadjust(val,lim)     ((val)<-(lim)?(val)+2*(lim):((val)>(lim)?(val)-2*(lim):(val)))
 
-typedef struct tagI2CErrorStruct {
-  i2cflags_t last_i2c_error;
-  uint32_t i2c_error_counter;
-} __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Find quaternion from roll, pitch and yaw.
- * @note  The order of rotations is:
- *        1. pitch (X);
- *        2. roll (Y);
- *        3. yaw (Z).
- */
-static inline void RPY2Quaternion (const float rpy[3], float q[4]) {
-  float phi, theta, psi;
-  float cphi, sphi, ctheta, stheta, cpsi, spsi;
-
-  phi    = rpy[0]*0.5f;
-  theta  = rpy[1]*0.5f;
-  psi    = rpy[2]*0.5f;
-
-  cphi   = cosf(phi);
-  sphi   = sinf(phi);
-  ctheta = cosf(theta);
-  stheta = sinf(theta);
-  cpsi   = cosf(psi);
-  spsi   = sinf(psi);
-
-  q[0] = cphi*ctheta*cpsi + sphi*stheta*spsi;
-  q[1] = sphi*ctheta*cpsi - cphi*stheta*spsi;
-  q[2] = cphi*stheta*cpsi + sphi*ctheta*spsi;
-  q[3] = cphi*ctheta*spsi - sphi*stheta*cpsi;
-}
 
 /**
  * @brief  Resets the CRC Data register (DR).

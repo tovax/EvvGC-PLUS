@@ -34,27 +34,40 @@
 /* C libraries: */
 #include <string.h>
 
-#include "misc.h"
 #include "attitude.h"
+#include "misc.h"
 #include "pwmio.h"
 
-#define FIXED_DT_STEP             0.0015f
+/**
+ * Single precision floating point constants.
+ */
+#ifndef M_PI
+#define M_PI                    ( 3.14159265f )
+#endif
 
-#define ACCEL_TAU                 0.1f
-#define INPUT_SIGNAL_ALPHA        266.7f
+#define RAD2DEG                 ( 180.0f / M_PI )
+#define DEG2RAD                 ( M_PI / 180.0f )
 
-#define MODE_FOLLOW_DEAD_BAND     F16( M_PI / 36.0f )
+#define FIXED_DT_STEP           ( 0.0015f )
 
-#define MOTOR_STEP_LIMIT_MAX      F16( M_PI / 45.0f )
-#define MOTOR_STEP_LIMIT_MIN      F16( M_PI /-45.0f )
+#define ACCEL_TAU               ( 0.1f )
+#define INPUT_SIGNAL_ALPHA      ( 266.7f )
 
-#define GRAV_LIMIT_LOW            F16( GRAV * 0.8f )
-#define GRAV_LIMIT_HIGH           F16( GRAV * 1.2f )
+/**
+ * Fixed point constants.
+ */
+#define MODE_FOLLOW_DEAD_BAND   F16( M_PI / 36.0f )
 
-#define PID_COEF_SCALE_P          F16( 0.1f )
-#define PID_COEF_SCALE_I          F16( 0.01f )
-#define PID_COEF_SCALE_D          F16( 1.0f )
-#define PID_COEF_SCALE_F          F16( 0.01f )
+#define MOTOR_STEP_LIMIT_MAX    F16( M_PI / 45.0f )
+#define MOTOR_STEP_LIMIT_MIN    F16( M_PI /-45.0f )
+
+#define GRAV_LIMIT_LOW          F16( GRAV * 0.8f )
+#define GRAV_LIMIT_HIGH         F16( GRAV * 1.2f )
+
+#define PID_COEF_SCALE_P        F16( 0.1f )
+#define PID_COEF_SCALE_I        F16( 0.01f )
+#define PID_COEF_SCALE_D        F16( 1.0f )
+#define PID_COEF_SCALE_F        F16( 0.01f )
 
 static const fix16_t fix16_two = 0x00020000; /*!< fix16_t value of 2 */
 
@@ -242,6 +255,35 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
 }
 
 /**
+ * @brief Find quaternion from roll, pitch and yaw.
+ * @note  The order of rotations is:
+ *        1. pitch (X);
+ *        2. roll (Y);
+ *        3. yaw (Z).
+ */
+/*
+static inline void RPY2Quaternion (const float rpy[3], float q[4]) {
+  float phi, theta, psi;
+  float cphi, sphi, ctheta, stheta, cpsi, spsi;
+
+  phi    = rpy[0]*0.5f;
+  theta  = rpy[1]*0.5f;
+  psi    = rpy[2]*0.5f;
+
+  cphi   = cosf(phi);
+  sphi   = sinf(phi);
+  ctheta = cosf(theta);
+  stheta = sinf(theta);
+  cpsi   = cosf(psi);
+  spsi   = sinf(psi);
+
+  q[0] = cphi*ctheta*cpsi + sphi*stheta*spsi;
+  q[1] = sphi*ctheta*cpsi - cphi*stheta*spsi;
+  q[2] = cphi*stheta*cpsi + sphi*ctheta*spsi;
+  q[3] = cphi*ctheta*spsi - sphi*stheta*cpsi;
+}
+*/
+/**
  * @brief
  */
 void attitudeInit(void) {
@@ -399,7 +441,6 @@ void actuatorsUpdate(void) {
   float cmd = 0.0f;
   fix16_t *pIMU1rpy = (fix16_t *)&g_IMU1.rpy;
   fix16_t *pIMU2rpy = (fix16_t *)&g_IMU2.rpy;
-
   /* Pitch: */
   uint8_t cmd_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {

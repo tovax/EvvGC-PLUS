@@ -26,6 +26,7 @@
 #include "mpu6050.h"
 #include "eeprom.h"
 #include "misc.h"
+#include "main.h"
 
 /* Predefined telemetry responses. */
 #define TELEMETRY_RESP_OK         "_OK_"
@@ -250,20 +251,20 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->size = sizeof(g_pidSettings) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
-  case '[': /* Calibrate gyroscope. */
-    imuCalibrationStart(&g_IMU1, IMU_CALIBRATE_GYRO);
+  case '[': /* Calibrate IMU1 gyroscope. */
+    imuCalibrationSet(IMU1_CALIBRATE_GYRO);
     telemetryPositiveResponse(pMsg);
     break;
-  case ']': /* Calibrate accelerometer. */
-    imuCalibrationStart(&g_IMU1, IMU_CALIBRATE_ACCEL);
+  case ']': /* Calibrate IMU1 accelerometer. */
+    imuCalibrationSet(IMU1_CALIBRATE_ACC);
     telemetryPositiveResponse(pMsg);
     break;
-  case '{': /* Calibrate gyroscope. */
-    imuCalibrationStart(&g_IMU2, IMU_CALIBRATE_GYRO);
+  case '{': /* Calibrate IMU2 gyroscope. */
+    imuCalibrationSet(IMU2_CALIBRATE_GYRO);
     telemetryPositiveResponse(pMsg);
     break;
-  case '}': /* Calibrate accelerometer. */
-    imuCalibrationStart(&g_IMU2, IMU_CALIBRATE_ACCEL);
+  case '}': /* Calibrate IMU2 accelerometer. */
+    imuCalibrationSet(IMU2_CALIBRATE_ACC);
     telemetryPositiveResponse(pMsg);
     break;
   default: /* Unknown command. */

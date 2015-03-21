@@ -21,7 +21,6 @@
  */
 
 #include "ch.h"
-#include "hal.h"
 
 /* C libraries: */
 #include <string.h>

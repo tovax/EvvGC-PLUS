@@ -21,14 +21,13 @@
  * and then begin reading process.
  */
 
+#include "ch.h"
+
 /* C libraries: */
 #include <string.h>
 
-#include "ch.h"
-#include "hal.h"
-
 #include "mpu6050.h"
-#include "misc.h"
+#include "main.h"
 
 #define MPU6050_RX_BUF_SIZE       0x0E
 #define MPU6050_TX_BUF_SIZE       0x05
@@ -62,8 +61,7 @@ IMUStruct g_IMU1;
 IMUStruct g_IMU2;
 
 /* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
-extern uint8_t g_fCalibrating;
+I2CErrorStruct g_i2cErrorInfo = {0, 0};
 
 /**
  * Local variables
@@ -83,8 +81,6 @@ void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrHigh) {
   memset((void *)pIMU, 0, sizeof(IMUStruct));
   /* Initialize attitude quaternion to unity quaternion. */
   pIMU->qIMU.a = fix16_one;
-  /* Calibrate gyroscope on start-up. */
-  pIMU->flags |= IMU_CALIBRATE_GYRO;
 
   if (fAddrHigh) {
     pIMU->addr = MPU6050_I2C_ADDR_A0_HIGH;
@@ -102,58 +98,54 @@ void imuStructureInit(PIMUStruct pIMU, uint8_t fAddrHigh) {
 /**
  * @brief
  */
-void imuCalibrationStart(PIMUStruct pIMU, uint8_t flags) {
-  pIMU->flags |= flags;
+void imuCalibrationSet(uint8_t flags) {
+  g_boardStatus |= flags & IMU_CALIBRATION_MASK;
 }
 
 /**
  * @brief  Initialization function of IMU data structure.
  * @param  pIMU - pointer to IMU data structure;
+ * @param  fCalibrateAccel - accelerometer calibraton flag;
+ * @return 0 - if calibration is not finished;
+ *         1 - if calibration is finished.
  */
-void imuCalibrate(PIMUStruct pIMU) {
-  g_fCalibrating = TRUE;
-
-  if (pIMU->flags & IMU_CALIBRATE_GYRO) {
-    if (pIMU->calCounter == 0) {
-      /* Reset gyroscope bias. */
-      memcpy((void *)&pIMU->gyroBias, (void *)&pIMU->gyroData, sizeof(pIMU->gyroData));
-      pIMU->calCounter++;
-      return;
-    } else if (pIMU->calCounter < CALIBRATION_COUNTER_MAX) {
-      /* Accumulate gyroscope bias. */
-      v3d_add(&pIMU->gyroBias, &pIMU->gyroBias, &pIMU->gyroData);
-      pIMU->calCounter++;
-      return;
-    } else {
-      /* Update gyroscope bias. */
-      v3d_div_s(&pIMU->gyroBias, &pIMU->gyroBias, fix16_from_int(CALIBRATION_COUNTER_MAX));
-      pIMU->calCounter = 0;
-      pIMU->flags &= ~IMU_CALIBRATE_GYRO;
-      g_fCalibrating = FALSE;
-    }
-  }
-
-  if (pIMU->flags & IMU_CALIBRATE_ACCEL) {
-    if (pIMU->calCounter == 0) {
+uint8_t imuCalibrate(PIMUStruct pIMU, uint8_t fCalibrateAccel) {
+  if (fCalibrateAccel) {
+    if (pIMU->clbrCounter == 0) {
       /* Reset accelerometer bias. */
       pIMU->accelData.z = fix16_add(pIMU->accelData.z, fix16_from_float(GRAV));
       memcpy((void *)&pIMU->accelBias, (void *)&pIMU->accelData, sizeof(pIMU->accelData));
-      pIMU->calCounter++;
-      return;
-    } else if (pIMU->calCounter < CALIBRATION_COUNTER_MAX) {
+      pIMU->clbrCounter++;
+      return 0;
+    } else if (pIMU->clbrCounter < CALIBRATION_COUNTER_MAX) {
       /* Accumulate accelerometer bias. */
       pIMU->accelData.z = fix16_add(pIMU->accelData.z, fix16_from_float(GRAV));
       v3d_add(&pIMU->accelBias, &pIMU->accelBias, &pIMU->accelData);
-      pIMU->calCounter++;
-      return;
+      pIMU->clbrCounter++;
+      return 0;
     } else {
       /* Update accelerometer bias. */
       v3d_div_s(&pIMU->accelBias, &pIMU->accelBias, fix16_from_int(CALIBRATION_COUNTER_MAX));
-      pIMU->calCounter = 0;
-      pIMU->flags &= ~IMU_CALIBRATE_ACCEL;
-      g_fCalibrating = FALSE;
+      pIMU->clbrCounter = 0;
+    }
+  } else {
+    if (pIMU->clbrCounter == 0) {
+      /* Reset gyroscope bias. */
+      memcpy((void *)&pIMU->gyroBias, (void *)&pIMU->gyroData, sizeof(pIMU->gyroData));
+      pIMU->clbrCounter++;
+      return 0;
+    } else if (pIMU->clbrCounter < CALIBRATION_COUNTER_MAX) {
+      /* Accumulate gyroscope bias. */
+      v3d_add(&pIMU->gyroBias, &pIMU->gyroBias, &pIMU->gyroData);
+      pIMU->clbrCounter++;
+      return 0;
+    } else {
+      /* Update gyroscope bias. */
+      v3d_div_s(&pIMU->gyroBias, &pIMU->gyroBias, fix16_from_int(CALIBRATION_COUNTER_MAX));
+      pIMU->clbrCounter = 0;
     }
   }
+  return 1;
 }
 
 /**
@@ -236,9 +228,6 @@ uint8_t mpu6050Init(uint8_t addr) {
  */
 uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   msg_t status = RDY_OK;
-  uint8_t id;
-  fix16_t *pAccelData;
-  fix16_t *pGyroData;
 
   /* Set the start register address for bulk data transfer. */
   mpu6050TXData[0] = MPU6050_ACCEL_XOUT_H;
@@ -255,10 +244,10 @@ uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
     return 0;
   }
 
-  pAccelData = (fix16_t *)&pIMU->accelData;
-  pGyroData = (fix16_t *)&pIMU->gyroData;
+  fix16_t *pAccelData = (fix16_t *)&pIMU->accelData;
+  fix16_t *pGyroData  = (fix16_t *)&pIMU->gyroData;
 
-  id = pIMU->axes_conf[0] & IMU_AXIS_ID_MASK;
+  uint8_t id = pIMU->axes_conf[0] & IMU_AXIS_ID_MASK;
   if (pIMU->axes_conf[0] & IMU_AXIS_DIR_POS) {
     pAccelData[id] = fix16_mul(fix16_from_int((mpu6050RXData[0]<<8) | mpu6050RXData[1]), MPU6050_ACCEL_SCALE); /* Accel X */
     pGyroData[id]  = fix16_mul(fix16_from_int((mpu6050RXData[8]<<8) | mpu6050RXData[9]), MPU6050_GYRO_SCALE);  /* Gyro X  */

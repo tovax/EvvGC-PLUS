@@ -90,7 +90,8 @@ extern int16_t g_inputValues[5];
 extern "C" {
 #endif
   void pwmOutputStart(void);
-  void pwmOutputUpdate(const uint8_t channel_id, fix16_t cmd);
+  void pwmOutputUpdate(uint8_t channel_id, fix16_t cmd);
+  void pwmOutputDisableAll(void);
   void pwmOutputSettingsUpdate(const PPWMOutputStruct pNewSettings);
   void mixedInputStart(void);
   void mixedInputSettingsUpdate(const PMixedInputStruct pNewSettings);
