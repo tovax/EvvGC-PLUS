@@ -38,11 +38,16 @@
 #define SENSOR2_AXIS_DIR_POS    0x80
 #define SENSOR2_AXIS_ID_MASK    0x70
 
+#define MPU6050_LOW_DETECTED    0x01
+#define MPU6050_HIGH_DETECTED   0x02
+#define EEPROM_24C02_DETECTED   0x04
+
 typedef struct tagPIDSettings
 {
     quint8 P;
     quint8 I;
     quint8 D;
+    quint8 F;
 } __attribute__((packed)) PIDSettings, *PPIDSettings;
 
 typedef struct tagOutputSettings
@@ -75,6 +80,11 @@ typedef struct tagI2CErrorStruct
     quint32 last_i2c_error;
     quint32 i2c_error_counter;
 } __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
+
+typedef qint32 fix16_t;
+
+static const fix16_t fix16_one = 0x00010000; /*!< fix16_t value of 1 */
+static inline float fix16_to_float(fix16_t a) { return (float)a / fix16_one; }
 
 namespace Ui {
 class MainWindow;
@@ -127,8 +137,9 @@ private:
     TelemetryMessage m_msg;
     QQuaternion lastQ;
     quint32 boardStatus;
+    quint32 idleCPUCounter;
+    fix16_t motorOffset[3];
     quint16 inputValues[5];
-    float motorOffset[3];
 };
 
 #endif // MAINWINDOW_H
