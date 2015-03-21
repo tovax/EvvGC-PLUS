@@ -116,6 +116,7 @@ private slots:
 
 private:
     void FillPortsInfo();
+    void BoardStatusApply();
     bool GetStabilizationSettings();
     bool SetStabilizationSettings();
     bool GetOutputSettings();

@@ -235,6 +235,8 @@ void MainWindow::SerialConnect()
         ui->actionRead->setEnabled(true);
         ui->actionSet->setEnabled(true);
         m_SerialDeviceList->setEnabled(false);
+        boardStatus = 0;
+        BoardStatusApply();
         ui->statusBar->showMessage(tr("Connected to: %1").arg(m_SerialDeviceList->currentText()));
         fConnected = true;
         m_timer.start(100);
@@ -602,28 +604,7 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
     case 'b': /* Reads board status. */
         if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == sizeof(boardStatus)) {
             boardStatus = *(msg.data);
-            /* Check if sensor1 detected. */
-            if (boardStatus & MPU6050_LOW_DETECTED) {
-                ui->groupSensor1->setTitle("Sensor1 (MPU6050):");
-                ui->groupSensor1->setEnabled(true);
-            } else {
-                ui->groupSensor1->setTitle("Sensor1 (none):");
-                ui->groupSensor1->setEnabled(false);
-            }
-            /* Check if sensor1 detected. */
-            if (boardStatus & MPU6050_HIGH_DETECTED) {
-                ui->groupSensor2->setTitle("Sensor2 (MPU6050):");
-                ui->groupSensor2->setEnabled(true);
-            } else {
-                ui->groupSensor2->setTitle("Sensor2 (none):");
-                ui->groupSensor2->setEnabled(false);
-            }
-            /* Check if EEPROM detected. */
-            if (boardStatus & EEPROM_24C02_DETECTED) {
-                ui->actionSave->setEnabled(true);
-            } else {
-                ui->actionSave->setEnabled(false);
-            }
+            BoardStatusApply();
             qDebug() << "Board status:\r\n  MPU6050 low detected:" << ((boardStatus & 1) == 1) \
                      << "\r\n  MPU6050 high detected:" << ((boardStatus & 2) == 2) \
                      << "\r\n  EEPROM detected:" << ((boardStatus & 4) == 4);
@@ -672,9 +653,9 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
     case 'h': /* Reads motor offset. */
         if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == sizeof(motorOffset)) {
             memcpy((void *)motorOffset, (void *)msg.data, sizeof(motorOffset));
-            ui->labelOffsetPitch->setText(tr("%1").arg(round(fix16_to_float(motorOffset[0])*RAD2DEG)));
-            ui->labelOffsetRoll->setText(tr("%1").arg(round(fix16_to_float(motorOffset[1])*RAD2DEG)));
-            ui->labelOffsetYaw->setText(tr("%1").arg(round(fix16_to_float(motorOffset[2])*RAD2DEG)));
+            ui->labelOffsetPitch->setText(tr("%1°").arg(round(fix16_to_float(motorOffset[0])*RAD2DEG)));
+            ui->labelOffsetRoll->setText(tr("%1°").arg(round(fix16_to_float(motorOffset[1])*RAD2DEG)));
+            ui->labelOffsetYaw->setText(tr("%1°").arg(round(fix16_to_float(motorOffset[2])*RAD2DEG)));
         } else {
             qDebug() << "Motor offset size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
                      << "|" << (sizeof(float) * 3);
@@ -808,6 +789,44 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
         break;
     default:
         qDebug() << "Unhandled message received!";
+    }
+}
+
+void MainWindow::BoardStatusApply()
+{
+    /* Check if sensor1 detected. */
+    if (boardStatus & MPU6050_LOW_DETECTED) {
+        ui->groupSensor1->setTitle("Sensor1 (MPU6050):");
+        ui->comboSensor1AxisTOP->setEnabled(true);
+        ui->comboSensor1AxisRIGHT->setEnabled(true);
+        ui->pushSensor1AccCalibrate->setEnabled(true);
+        ui->pushSensor1GyroCalibrate->setEnabled(true);
+    } else {
+        ui->groupSensor1->setTitle("Sensor1 (none):");
+        ui->comboSensor1AxisTOP->setEnabled(false);
+        ui->comboSensor1AxisRIGHT->setEnabled(false);
+        ui->pushSensor1AccCalibrate->setEnabled(false);
+        ui->pushSensor1GyroCalibrate->setEnabled(false);
+    }
+    /* Check if sensor1 detected. */
+    if (boardStatus & MPU6050_HIGH_DETECTED) {
+        ui->groupSensor2->setTitle("Sensor2 (MPU6050):");
+        ui->comboSensor2AxisTOP->setEnabled(true);
+        ui->comboSensor2AxisRIGHT->setEnabled(true);
+        ui->pushSensor2AccCalibrate->setEnabled(true);
+        ui->pushSensor2GyroCalibrate->setEnabled(true);
+    } else {
+        ui->groupSensor2->setTitle("Sensor2 (none):");
+        ui->comboSensor2AxisTOP->setEnabled(false);
+        ui->comboSensor2AxisRIGHT->setEnabled(false);
+        ui->pushSensor2AccCalibrate->setEnabled(false);
+        ui->pushSensor2GyroCalibrate->setEnabled(false);
+    }
+    /* Check if EEPROM detected. */
+    if (boardStatus & EEPROM_24C02_DETECTED) {
+        ui->actionSave->setEnabled(true);
+    } else {
+        ui->actionSave->setEnabled(false);
     }
 }
 

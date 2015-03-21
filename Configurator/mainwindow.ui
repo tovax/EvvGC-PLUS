@@ -75,6 +75,9 @@
         </item>
         <item row="4" column="3">
          <widget class="QSpinBox" name="spinYaw_D">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -82,6 +85,9 @@
         </item>
         <item row="4" column="1">
          <widget class="QSpinBox" name="spinYaw_P">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -118,6 +124,9 @@
         </item>
         <item row="4" column="2">
          <widget class="QSpinBox" name="spinYaw_I">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -157,6 +166,9 @@
         </item>
         <item row="3" column="1">
          <widget class="QSpinBox" name="spinRoll_P">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -164,6 +176,9 @@
         </item>
         <item row="3" column="2">
          <widget class="QSpinBox" name="spinRoll_I">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -171,6 +186,9 @@
         </item>
         <item row="3" column="3">
          <widget class="QSpinBox" name="spinRoll_D">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -178,6 +196,15 @@
         </item>
         <item row="2" column="1">
          <widget class="QSpinBox" name="spinPitch_P">
+          <property name="frame">
+           <bool>true</bool>
+          </property>
+          <property name="buttonSymbols">
+           <enum>QAbstractSpinBox::UpDownArrows</enum>
+          </property>
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -185,6 +212,9 @@
         </item>
         <item row="2" column="2">
          <widget class="QSpinBox" name="spinPitch_I">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -192,6 +222,9 @@
         </item>
         <item row="2" column="3">
          <widget class="QSpinBox" name="spinPitch_D">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -199,6 +232,12 @@
         </item>
         <item row="2" column="4">
          <widget class="QSpinBox" name="spinPitch_F">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -206,6 +245,15 @@
         </item>
         <item row="3" column="4">
          <widget class="QSpinBox" name="spinRoll_F">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
+          <property name="prefix">
+           <string/>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -213,6 +261,12 @@
         </item>
         <item row="4" column="4">
          <widget class="QSpinBox" name="spinYaw_F">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>255</number>
           </property>
@@ -221,7 +275,7 @@
         <item row="0" column="4">
          <widget class="QLabel" name="labelFF">
           <property name="text">
-           <string>Feed Forward, %</string>
+           <string>Feed Forward</string>
           </property>
           <property name="textFormat">
            <enum>Qt::PlainText</enum>
@@ -269,6 +323,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="currentIndex">
+           <number>5</number>
+          </property>
           <item>
            <property name="text">
             <string>750 ns</string>
@@ -309,6 +366,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="currentIndex">
+           <number>3</number>
+          </property>
           <property name="maxVisibleItems">
            <number>4</number>
           </property>
@@ -345,6 +405,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="currentIndex">
+           <number>3</number>
+          </property>
           <property name="maxVisibleItems">
            <number>4</number>
           </property>
@@ -377,6 +440,9 @@
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="currentIndex">
+           <number>5</number>
           </property>
           <item>
            <property name="text">
@@ -441,6 +507,12 @@
         </item>
         <item row="2" column="1">
          <widget class="QSpinBox" name="spinPitchPower">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
@@ -513,6 +585,12 @@
         </item>
         <item row="3" column="1">
          <widget class="QSpinBox" name="spinRollPower">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
@@ -520,6 +598,12 @@
         </item>
         <item row="4" column="1">
          <widget class="QSpinBox" name="spinYawPower">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>%</string>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
@@ -532,6 +616,9 @@
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="currentIndex">
+           <number>3</number>
           </property>
           <property name="maxVisibleItems">
            <number>4</number>
@@ -561,7 +648,7 @@
         <item row="1" column="1">
          <widget class="QLabel" name="labelPower">
           <property name="text">
-           <string>Power, %</string>
+           <string>Power</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -587,7 +674,7 @@
         <item row="1" column="7">
          <widget class="QLabel" name="labelDeadTime">
           <property name="text">
-           <string>Dead Time, ns</string>
+           <string>Dead Time</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -614,6 +701,9 @@
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="currentIndex">
+           <number>5</number>
           </property>
           <item>
            <property name="text">
@@ -823,6 +913,9 @@
         </item>
         <item row="4" column="5">
          <widget class="QSpinBox" name="spinInputMaxYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -830,6 +923,9 @@
         </item>
         <item row="4" column="4">
          <widget class="QSpinBox" name="spinInputMidYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -837,6 +933,9 @@
         </item>
         <item row="4" column="3">
          <widget class="QSpinBox" name="spinInputMinYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -849,6 +948,9 @@
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="currentIndex">
+           <number>5</number>
           </property>
           <item>
            <property name="text">
@@ -890,6 +992,9 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="currentIndex">
+           <number>5</number>
+          </property>
           <item>
            <property name="text">
             <string>AUX1 analog</string>
@@ -924,6 +1029,9 @@
         </item>
         <item row="2" column="3">
          <widget class="QSpinBox" name="spinInputMinPitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -931,6 +1039,9 @@
         </item>
         <item row="2" column="4">
          <widget class="QSpinBox" name="spinInputMidPitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -938,6 +1049,9 @@
         </item>
         <item row="2" column="5">
          <widget class="QSpinBox" name="spinInputMaxPitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -963,6 +1077,9 @@
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
+          </property>
+          <property name="currentIndex">
+           <number>5</number>
           </property>
           <item>
            <property name="text">
@@ -998,6 +1115,9 @@
         </item>
         <item row="3" column="3">
          <widget class="QSpinBox" name="spinInputMinRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -1005,6 +1125,9 @@
         </item>
         <item row="3" column="4">
          <widget class="QSpinBox" name="spinInputMidRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -1012,6 +1135,9 @@
         </item>
         <item row="3" column="5">
          <widget class="QSpinBox" name="spinInputMaxRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
           <property name="maximum">
            <number>4095</number>
           </property>
@@ -1049,6 +1175,12 @@
         </item>
         <item row="5" column="5">
          <widget class="QSpinBox" name="spinInputOffsetYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1059,6 +1191,12 @@
         </item>
         <item row="5" column="4">
          <widget class="QSpinBox" name="spinInputSpeedYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°/s</string>
+          </property>
           <property name="maximum">
            <number>180</number>
           </property>
@@ -1066,6 +1204,12 @@
         </item>
         <item row="5" column="3">
          <widget class="QSpinBox" name="spinInputMaxAngleYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1076,6 +1220,12 @@
         </item>
         <item row="5" column="2">
          <widget class="QSpinBox" name="spinInputMinAngleYaw">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1228,6 +1378,12 @@
         </item>
         <item row="4" column="2">
          <widget class="QSpinBox" name="spinInputMinAngleRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1238,6 +1394,12 @@
         </item>
         <item row="4" column="3">
          <widget class="QSpinBox" name="spinInputMaxAngleRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1248,6 +1410,12 @@
         </item>
         <item row="4" column="4">
          <widget class="QSpinBox" name="spinInputSpeedRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°/s</string>
+          </property>
           <property name="maximum">
            <number>180</number>
           </property>
@@ -1280,6 +1448,12 @@
         </item>
         <item row="2" column="2">
          <widget class="QSpinBox" name="spinInputMinAnglePitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1290,6 +1464,12 @@
         </item>
         <item row="2" column="3">
          <widget class="QSpinBox" name="spinInputMaxAnglePitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1300,6 +1480,12 @@
         </item>
         <item row="4" column="5">
          <widget class="QSpinBox" name="spinInputOffsetRoll">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1310,6 +1496,12 @@
         </item>
         <item row="2" column="4">
          <widget class="QSpinBox" name="spinInputSpeedPitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°/s</string>
+          </property>
           <property name="maximum">
            <number>180</number>
           </property>
@@ -1317,6 +1509,12 @@
         </item>
         <item row="2" column="5">
          <widget class="QSpinBox" name="spinInputOffsetPitch">
+          <property name="accelerated">
+           <bool>true</bool>
+          </property>
+          <property name="suffix">
+           <string>°</string>
+          </property>
           <property name="minimum">
            <number>-180</number>
           </property>
@@ -1335,21 +1533,21 @@
         <item row="2" column="6">
          <widget class="QLabel" name="labelOffsetPitch">
           <property name="text">
-           <string>0</string>
+           <string>0°</string>
           </property>
          </widget>
         </item>
         <item row="4" column="6">
          <widget class="QLabel" name="labelOffsetRoll">
           <property name="text">
-           <string>0</string>
+           <string>0°</string>
           </property>
          </widget>
         </item>
         <item row="5" column="6">
          <widget class="QLabel" name="labelOffsetYaw">
           <property name="text">
-           <string>0</string>
+           <string>0°</string>
           </property>
          </widget>
         </item>
@@ -1372,7 +1570,10 @@
            <item row="0" column="1">
             <widget class="QComboBox" name="comboSensor1AxisTOP">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
+             </property>
+             <property name="currentIndex">
+              <number>2</number>
              </property>
              <item>
               <property name="text">
@@ -1409,7 +1610,10 @@
            <item row="1" column="1">
             <widget class="QComboBox" name="comboSensor1AxisRIGHT">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
+             </property>
+             <property name="currentIndex">
+              <number>3</number>
              </property>
              <item>
               <property name="text">
@@ -1460,7 +1664,7 @@
            <item row="2" column="0" colspan="2">
             <widget class="QPushButton" name="pushSensor1AccCalibrate">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <property name="text">
               <string>Accel Calibrate</string>
@@ -1470,7 +1674,7 @@
            <item row="3" column="0" colspan="2">
             <widget class="QPushButton" name="pushSensor1GyroCalibrate">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <property name="text">
               <string>Gyro Calibrate</string>
@@ -1524,7 +1728,10 @@
            <item row="0" column="1">
             <widget class="QComboBox" name="comboSensor2AxisTOP">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
+             </property>
+             <property name="currentIndex">
+              <number>2</number>
              </property>
              <item>
               <property name="text">
@@ -1575,7 +1782,10 @@
            <item row="1" column="1">
             <widget class="QComboBox" name="comboSensor2AxisRIGHT">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
+             </property>
+             <property name="currentIndex">
+              <number>3</number>
              </property>
              <item>
               <property name="text">
@@ -1612,7 +1822,7 @@
            <item row="4" column="0" colspan="2">
             <widget class="QPushButton" name="pushSensor2AccCalibrate">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <property name="text">
               <string>Accel Calibrate</string>
@@ -1622,7 +1832,7 @@
            <item row="5" column="0" colspan="2">
             <widget class="QPushButton" name="pushSensor2GyroCalibrate">
              <property name="enabled">
-              <bool>true</bool>
+              <bool>false</bool>
              </property>
              <property name="text">
               <string>Gyro Calibrate</string>
