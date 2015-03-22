@@ -123,6 +123,7 @@ InputModeStruct g_modeSettings[3] = {
 /**
  * Local variables
  */
+static qf16 qIMU2Prev = {0x00010000, 0x00000000, 0x00000000, 0x00000000};
 static fix16_t camRot[3] = {0.0f};
 static fix16_t camRotSpeedPrev[3] = {0.0f};
 
@@ -164,7 +165,7 @@ static float pidControllerApply(uint8_t cmd_id, fix16_t sp, fix16_t pv, fix16_t 
   fix16_t acceleration = fix16_sub(speed, PID[cmd_id].prevSpeed);
   step = fix16_add(step, fix16_mul(acceleration, PID[cmd_id].D));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  fix16_t disturbance = fix16_mul(fix16_sub(PID[cmd_id].prevDisturbance, d), poles2);
+  fix16_t disturbance = fix16_mul(fix16_sub(d, PID[cmd_id].prevDisturbance), poles2);
   step = fix16_add(step, fix16_mul(disturbance, PID[cmd_id].F));
   /* Update offset of the motor: */
   g_motorOffset[cmd_id] = fix16_add(g_motorOffset[cmd_id], fix16_div(step, poles2));
@@ -253,7 +254,7 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
 
   //TODO: consider the cases where |R13| ~= 1, |roll| ~= pi/2
 }
-
+#if 0
 /**
  * @brief Find quaternion from roll, pitch and yaw.
  * @note  The order of rotations is:
@@ -261,28 +262,36 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
  *        2. roll (Y);
  *        3. yaw (Z).
  */
-/*
-static inline void RPY2Quaternion (const float rpy[3], float q[4]) {
-  float phi, theta, psi;
-  float cphi, sphi, ctheta, stheta, cpsi, spsi;
+static void RPY2Quaternion (const v3d *rpy, qf16 *q) {
+  fix16_t phi, theta, psi;
+  fix16_t cphi, sphi, ctheta, stheta, cpsi, spsi;
+  fix16_t tmp1, tmp2;
 
-  phi    = rpy[0]*0.5f;
-  theta  = rpy[1]*0.5f;
-  psi    = rpy[2]*0.5f;
+  phi    = fix16_div(rpy->x, fix16_two);
+  theta  = fix16_div(rpy->y, fix16_two);
+  psi    = fix16_div(rpy->z, fix16_two);
 
-  cphi   = cosf(phi);
-  sphi   = sinf(phi);
-  ctheta = cosf(theta);
-  stheta = sinf(theta);
-  cpsi   = cosf(psi);
-  spsi   = sinf(psi);
+  cphi   = fix16_cos(phi);
+  sphi   = fix16_sin(phi);
+  ctheta = fix16_cos(theta);
+  stheta = fix16_sin(theta);
+  cpsi   = fix16_cos(psi);
+  spsi   = fix16_sin(psi);
 
-  q[0] = cphi*ctheta*cpsi + sphi*stheta*spsi;
-  q[1] = sphi*ctheta*cpsi - cphi*stheta*spsi;
-  q[2] = cphi*stheta*cpsi + sphi*ctheta*spsi;
-  q[3] = cphi*ctheta*spsi - sphi*stheta*cpsi;
+  tmp1 = fix16_mul(cphi, fix16_mul(ctheta, cpsi));
+  tmp2 = fix16_mul(sphi, fix16_mul(stheta, spsi));
+  q->a = fix16_add(tmp1, tmp2);
+  tmp1 = fix16_mul(sphi, fix16_mul(ctheta, cpsi));
+  tmp2 = fix16_mul(cphi, fix16_mul(stheta, spsi));
+  q->b = fix16_sub(tmp1, tmp2);
+  tmp1 = fix16_mul(cphi, fix16_mul(stheta, cpsi));
+  tmp2 = fix16_mul(sphi, fix16_mul(ctheta, spsi));
+  q->c = fix16_add(tmp1, tmp2);
+  tmp1 = fix16_mul(cphi, fix16_mul(ctheta, spsi));
+  tmp2 = fix16_mul(sphi, fix16_mul(stheta, cpsi));
+  q->d = fix16_sub(tmp1, tmp2);
 }
-*/
+#endif // 0
 /**
  * @brief
  */
@@ -365,7 +374,7 @@ void attitudeUpdate(PIMUStruct pIMU) {
   qf16_normalize(&pIMU->qIMU, &pIMU->qIMU);
 
   /* Convert attitude into Euler angles. */
-  Quaternion2RPY(&pIMU->qIMU, &pIMU->rpy);
+  //Quaternion2RPY(&pIMU->qIMU, &pIMU->rpy);
 }
 
 /**
@@ -439,26 +448,58 @@ void cameraRotationUpdate(void) {
  */
 void actuatorsUpdate(void) {
   float cmd = 0.0f;
-  fix16_t *pIMU1rpy = (fix16_t *)&g_IMU1.rpy;
-  fix16_t *pIMU2rpy = (fix16_t *)&g_IMU2.rpy;
+  qf16 qDiff1;
+  qf16 qDiff2;
+  qf16 qTmp;
+  v3d rpy1;
+  v3d rpy2;
+
+  /**
+   * NOTE:
+   *   The following section uses quaternion mathematics to transform
+   *   measured disturbance value by IMU2 in 3D space from reference
+   *   frame of IMU2 to reference frame of IMU1 (camera frame).
+   *
+   *   Quaternion multiplication is not commutative, therefore
+   *   THE ORDER OF MULTIPLICATIONS IS VERY IMPORTANT!
+   */
+  /* Invert previous direction of the IMU2 quaternion. */
+  qf16_conj(&qTmp, &qIMU2Prev);
+  /* Find the difference between previous and current directions of IMU2. */
+  qf16_mul(&qDiff1, &qTmp, &g_IMU2.qIMU);
+  /* Invert current direction of the IMU2 quaternion. */
+  qf16_conj(&qTmp, &g_IMU2.qIMU);
+  /* Find the difference between reference frames of IMU2 and IMU1. */
+  qf16_mul(&qDiff2, &qTmp, &g_IMU1.qIMU);
+  /* Rotate reference frame from IMU2 to reference frame of IMU1. */
+  qf16_mul(&qTmp, &qDiff1, &qDiff2);
+  /* Store IMU2 quaternion value for the next iteration. */
+  memcpy((void *)&qIMU2Prev, (void *)&g_IMU2.qIMU, sizeof(qf16));
+
+  Quaternion2RPY(&g_IMU1.qIMU, &rpy1);
+  Quaternion2RPY(&qTmp, &rpy2);
+
+  fix16_t *p1 = (fix16_t *)&rpy1;
+  fix16_t *p2 = (fix16_t *)&rpy2;
+
   /* Pitch: */
   uint8_t cmd_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_PITCH, cmd);
   cmd = 0.0f;
   /* Roll: */
   cmd_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_ROLL, cmd);
   cmd = 0.0f;
   /* Yaw: */
   cmd_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], pIMU1rpy[cmd_id], pIMU2rpy[cmd_id]);
+    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_YAW, cmd);
 }

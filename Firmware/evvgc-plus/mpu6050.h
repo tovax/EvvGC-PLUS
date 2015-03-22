@@ -81,7 +81,6 @@ typedef struct tagIMUStruct {
   v3d gyroBias;         /* Gyroscope bias.                 */
   v3d accelFiltered;    /* Filtered accelerometer data.    */
   v3d grotFiltered;     /* Filtered direction of gravity.  */
-  v3d rpy;              /* Attitude in Euler angles.       */
   qf16 qIMU;            /* Attitude quaternion of the IMU. */
   uint32_t clbrCounter; /* Calibration counter             */
   uint8_t axes_conf[3]; /* Configuration of IMU axes.      */
