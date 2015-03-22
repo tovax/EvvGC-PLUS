@@ -298,7 +298,7 @@ static void RPY2Quaternion (const v3d *rpy, qf16 *q) {
 void attitudeInit(void) {
   pidUpdateStruct();
   accelKp = fix16_from_float(0.02f / FIXED_DT_STEP);
-  accelKi = fix16_from_float(0.0002f);
+  accelKi = fix16_from_float(0.0005f);
   accel_alpha = fix16_exp(fix16_from_float(-FIXED_DT_STEP / ACCEL_TAU));
 }
 
@@ -349,7 +349,7 @@ void attitudeUpdate(PIMUStruct pIMU) {
 
   // Correct rates based on error.
   v3d_mul_s(&tmp, &accelErr, accelKi);
-  v3d_add(&pIMU->gyroBias, &pIMU->gyroBias, &tmp);
+  v3d_sub(&pIMU->gyroBias, &pIMU->gyroBias, &tmp);
 
   // Calculate derivative of the attitude quaternion.
   dq.a = fix16_mul(pIMU->qIMU.b, pIMU->gyroData.x);
