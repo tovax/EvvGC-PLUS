@@ -239,7 +239,7 @@ void MainWindow::SerialConnect()
         BoardStatusApply();
         ui->statusBar->showMessage(tr("Connected to: %1").arg(m_SerialDeviceList->currentText()));
         fConnected = true;
-        m_timer.start(100);
+        m_timer.start(20);
     }
 }
 
@@ -486,20 +486,24 @@ void MainWindow::ProcessTimeout()
     m_msg.size = TELEMETRY_MSG_SIZE_BYTES;
     m_msg.res  = 0;
 
-    /* Get attitude data. */
-    m_msg.msg_id = 'r';
-    m_msg.crc    = GetCRC32Checksum(m_msg);
-    SerialDataWrite(m_msg);
+    if (telemCnt < 4) {
+        /* Get attitude data. */
+        m_msg.msg_id = 'r';
+        m_msg.crc    = GetCRC32Checksum(m_msg);
+        SerialDataWrite(m_msg);
+        telemCnt++;
+    } else {
+        /* Get input values. */
+        m_msg.msg_id = 'i';
+        m_msg.crc    = GetCRC32Checksum(m_msg);
+        SerialDataWrite(m_msg);
 
-    /* Get input values. */
-    m_msg.msg_id = 'i';
-    m_msg.crc    = GetCRC32Checksum(m_msg);
-    SerialDataWrite(m_msg);
-
-    /* Get offset values. */
-    m_msg.msg_id = 'h';
-    m_msg.crc    = GetCRC32Checksum(m_msg);
-    SerialDataWrite(m_msg);
+        /* Get offset values. */
+        m_msg.msg_id = 'h';
+        m_msg.crc    = GetCRC32Checksum(m_msg);
+        SerialDataWrite(m_msg);
+        telemCnt = 0;
+    }
 }
 
 

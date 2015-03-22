@@ -141,6 +141,7 @@ private:
     quint32 idleCPUCounter;
     fix16_t motorOffset[3];
     quint16 inputValues[5];
+    quint8 telemCnt;
 };
 
 #endif // MAINWINDOW_H
