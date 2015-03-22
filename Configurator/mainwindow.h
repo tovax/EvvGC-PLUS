@@ -117,6 +117,7 @@ private slots:
 private:
     void FillPortsInfo();
     void BoardStatusApply();
+    void UpdatePlotData(const float rpy[3]);
     bool GetStabilizationSettings();
     bool SetStabilizationSettings();
     bool GetOutputSettings();

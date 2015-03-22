@@ -150,7 +150,7 @@ static void telemetryProcessCommand(const PMessage pMsg) {
       telemetryNegativeResponse(pMsg);
     }
     break;
-  case 'M': /* Reads new input mode settings; */
+  case 'N': /* Reads new input mode settings; */
     if ((pMsg->size - TELEMETRY_MSG_SIZE) == sizeof(g_modeSettings)) {
       inputModeSettingsUpdate((PInputModeStruct)pMsg->data);
       telemetryPositiveResponse(pMsg);
@@ -173,11 +173,6 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     } else {
       telemetryNegativeResponse(pMsg);
     }
-    break;
-  case 'a': /* Outputs accelerometer data; */
-    memcpy((void *)pMsg->data, (void *)&g_IMU1.accelData, sizeof(g_IMU1.accelData));
-    pMsg->size = sizeof(g_IMU1.accelData) + TELEMETRY_MSG_SIZE;
-    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case 'b': /* Outputs board status; */
     memcpy((void *)pMsg->data, (void *)&g_boardStatus, sizeof(g_boardStatus));
@@ -203,9 +198,14 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->size = sizeof(g_i2cErrorInfo) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
-  case 'g': /* Outputs gyroscope data; */
+  case 'f': /* Outputs IMU1 gyroscope data; */
     memcpy((void *)pMsg->data, (void *)&g_IMU1.gyroData, sizeof(g_IMU1.gyroData));
     pMsg->size = sizeof(g_IMU1.gyroData) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 'g': /* Outputs IMU2 gyroscope data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU2.gyroData, sizeof(g_IMU2.gyroData));
+    pMsg->size = sizeof(g_IMU2.gyroData) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case 'h': /* Outputs motor offset data; */
@@ -220,7 +220,27 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->size = sizeof(g_inputValues) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
-  case 'm': /* Outputs input mode settings; */
+  case 'j': /* Outputs IMU1 accelerometer data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.accelData, sizeof(g_IMU1.accelData));
+    pMsg->size = sizeof(g_IMU1.accelData) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 'k': /* Outputs IMU2 accelerometer data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU2.accelData, sizeof(g_IMU2.accelData));
+    pMsg->size = sizeof(g_IMU2.accelData) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 'l': /* Outputs IMU1 gyroscope bias data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.gyroBias, sizeof(g_IMU1.gyroBias));
+    pMsg->size = sizeof(g_IMU1.gyroBias) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 'm': /* Outputs IMU2 gyroscope bias data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU2.gyroBias, sizeof(g_IMU2.gyroBias));
+    pMsg->size = sizeof(g_IMU2.gyroBias) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 'n': /* Outputs input mode settings; */
     memcpy((void *)pMsg->data, (void *)g_modeSettings, sizeof(g_modeSettings));
     pMsg->size = sizeof(g_modeSettings) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
@@ -249,6 +269,11 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     memset((void *)pMsg->data, 0, TELEMETRY_BUFFER_SIZE);
     memcpy((void *)pMsg->data, (void *)g_pidSettings, sizeof(g_pidSettings));
     pMsg->size = sizeof(g_pidSettings) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+  case 't': /* Outputs gimbal frame attitude data; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU2.qIMU, sizeof(g_IMU2.qIMU));
+    pMsg->size = sizeof(g_IMU2.qIMU) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case '[': /* Calibrate IMU1 gyroscope. */

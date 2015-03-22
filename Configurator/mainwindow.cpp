@@ -332,7 +332,7 @@ void MainWindow::HandleReadSettings()
     SerialDataWrite(m_msg);
 
     /* Get input mode settings. */
-    m_msg.msg_id = 'm';
+    m_msg.msg_id = 'n';
     m_msg.crc    = GetCRC32Checksum(m_msg);
     SerialDataWrite(m_msg);
 
@@ -426,7 +426,7 @@ void MainWindow::HandleApplySettings()
         /* Clean data buffer for zero-padded crc32 checksum calculation. */
         memset((void *)m_msg.data, 0, TELEMETRY_BUFFER_SIZE);
         memcpy((void *)m_msg.data, (void *)modeSettings, sizeof(modeSettings));
-        m_msg.msg_id = 'M';
+        m_msg.msg_id = 'N';
         m_msg.size   = sizeof(modeSettings) + TELEMETRY_MSG_SIZE_BYTES;
         m_msg.crc    = GetCRC32Checksum(m_msg);
 
@@ -488,8 +488,35 @@ void MainWindow::ProcessTimeout()
 
     if (telemCnt < 4) {
         /* Get attitude data. */
-        m_msg.msg_id = 'r';
-        m_msg.crc    = GetCRC32Checksum(m_msg);
+        switch (ui->comboData->currentIndex()) {
+        case 0:
+            m_msg.msg_id = 'r';
+            break;
+        case 1:
+            m_msg.msg_id = 't';
+            break;
+        case 2:
+            m_msg.msg_id = 'f';
+            break;
+        case 3:
+            m_msg.msg_id = 'g';
+            break;
+        case 4:
+            m_msg.msg_id = 'j';
+            break;
+        case 5:
+            m_msg.msg_id = 'k';
+            break;
+        case 6:
+            m_msg.msg_id = 'l';
+            break;
+        case 7:
+            m_msg.msg_id = 'm';
+            break;
+        default:
+            m_msg.msg_id = 'r';
+        }
+        m_msg.crc = GetCRC32Checksum(m_msg);
         SerialDataWrite(m_msg);
         telemCnt++;
     } else {
@@ -555,6 +582,39 @@ void MainWindow::HandleGyroCalibrate()
     SerialDataWrite(m_msg);
 }
 
+void MainWindow::UpdatePlotData(const float rpy[3])
+{
+    bool fEnlarge = false;
+    double key = QDateTime::currentDateTime().toMSecsSinceEpoch()/1000.0;
+
+    ui->plotData->graph(0)->setVisible(ui->checkDataX->isChecked());
+    ui->plotData->graph(1)->setVisible(ui->checkDataY->isChecked());
+    ui->plotData->graph(2)->setVisible(ui->checkDataZ->isChecked());
+    // add new data:
+    ui->plotData->graph(0)->addData(key, rpy[0]);
+    ui->plotData->graph(1)->addData(key, rpy[1]);
+    ui->plotData->graph(2)->addData(key, rpy[2]);
+    // remove data of lines that's outside visible range:
+    ui->plotData->graph(0)->removeDataBefore(key-8);
+    ui->plotData->graph(1)->removeDataBefore(key-8);
+    ui->plotData->graph(2)->removeDataBefore(key-8);
+    // rescale value (vertical) axis to fit the current data:
+    if (ui->plotData->graph(0)->visible()) {
+        ui->plotData->graph(0)->rescaleValueAxis();
+        fEnlarge = true;
+    }
+    if (ui->plotData->graph(1)->visible()) {
+        ui->plotData->graph(1)->rescaleValueAxis(fEnlarge);
+        fEnlarge = true;
+    }
+    if (ui->plotData->graph(2)->visible()) {
+        ui->plotData->graph(2)->rescaleValueAxis(fEnlarge);
+    }
+
+    ui->plotData->xAxis->setRange(key+0.25, 8, Qt::AlignRight);
+    ui->plotData->replot();
+}
+
 /**
  * @brief MainWindow::ProcessSerialCommands
  * @param pMsg
@@ -563,12 +623,9 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
 {
     float rpy[3];
     float quat[4];
-    float *pfloatBuf;
     fix16_t *pfix16Buf;
     QQuaternion attiQ;
     QQuaternion diffQ;
-    bool fEnlarge = false;
-    double key = QDateTime::currentDateTime().toMSecsSinceEpoch()/1000.0;
 
     switch (msg.msg_id) {
     case 'D': /* Response to new sensor settings. */
@@ -581,7 +638,7 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
             qDebug() << "New mixed input settings were not applied!";
         }
         break;
-    case 'M': /* Response to new input mode settings. */
+    case 'N': /* Response to new input mode settings. */
         if (strcmp(msg.data, TELEMETRY_RESP_FAIL) == 0) {
             qDebug() << "New input mode settings were not applied!";
         }
@@ -594,15 +651,6 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
     case 'S': /* Response to new PID values. */
         if (strcmp(msg.data, TELEMETRY_RESP_FAIL) == 0) {
             qDebug() << "New PID values were not applied!";
-        }
-        break;
-    case 'a': /* Reads accelerometer data. */
-        qDebug() << "Acc data received.";
-        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(float) * 3)) {
-            pfloatBuf = (float *)(msg.data);
-        } else {
-            qDebug() << "Acc size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
-                     << "|" << (sizeof(float) * 3);
         }
         break;
     case 'b': /* Reads board status. */
@@ -645,13 +693,17 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
                      << "|" << sizeof(i2cErrorInfo);
         }
         break;
-    case 'g': /* Reads gyroscope data. */
-        qDebug() << "Gyro data received.";
-        if ((msg.size -TELEMETRY_MSG_SIZE_BYTES) == (sizeof(float) * 3)) {
-            pfloatBuf = (float *)(msg.data);
+    case 'f': /* Reads IMU1 gyroscope data. */
+    case 'g': /* Reads IMU2 gyroscope data. */
+        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 3)) {
+            pfix16Buf = (fix16_t *)(msg.data);
+            rpy[0] = fix16_to_float(pfix16Buf[0]);
+            rpy[1] = fix16_to_float(pfix16Buf[1]);
+            rpy[2] = fix16_to_float(pfix16Buf[2]);
+            UpdatePlotData(rpy);
         } else {
             qDebug() << "Gyro size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
-                     << "|" << (sizeof(float) * 3);
+                     << "|" << (sizeof(fix16_t) * 3);
         }
         break;
     case 'h': /* Reads motor offset. */
@@ -688,7 +740,33 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
                      << "|" << sizeof(inputValues);
         }
         break;
-    case 'm': /* Reads input mode settings. */
+    case 'j': /* Reads IMU1 accelerometer data. */
+    case 'k': /* Reads IMU2 accelerometer data. */
+        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 3)) {
+            pfix16Buf = (fix16_t *)(msg.data);
+            rpy[0] = fix16_to_float(pfix16Buf[0]);
+            rpy[1] = fix16_to_float(pfix16Buf[1]);
+            rpy[2] = fix16_to_float(pfix16Buf[2]);
+            UpdatePlotData(rpy);
+        } else {
+            qDebug() << "Acc size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
+                     << "|" << (sizeof(fix16_t) * 3);
+        }
+        break;
+    case 'l': /* Reads IMU1 gyroscope bias data. */
+    case 'm': /* Reads IMU2 gyroscope bias data. */
+        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 3)) {
+            pfix16Buf = (fix16_t *)(msg.data);
+            rpy[0] = fix16_to_float(pfix16Buf[0]);
+            rpy[1] = fix16_to_float(pfix16Buf[1]);
+            rpy[2] = fix16_to_float(pfix16Buf[2]);
+            UpdatePlotData(rpy);
+        } else {
+            qDebug() << "Gyro bias size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
+                     << "|" << (sizeof(fix16_t) * 3);
+        }
+        break;
+    case 'n': /* Reads input mode settings. */
         qDebug() << "Input mode settings received.";
         if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == sizeof(modeSettings)) {
             memcpy((void *)modeSettings, (void *)msg.data, sizeof(modeSettings));
@@ -718,7 +796,8 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
                      << "|" << sizeof(inSettings);
         }
         break;
-    case 'r': /* Reads attitude quaternion. */
+    case 'r': /* Reads camera attitude quaternion. */
+    case 't': /* Reads gimbal frame attitude quaternion. */
         if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 4)) {
             pfix16Buf = (fix16_t *)(msg.data);
             quat[0] = fix16_to_float(pfix16Buf[0]);
@@ -727,6 +806,10 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
             quat[3] = fix16_to_float(pfix16Buf[3]);
 
             Quaternion2RPY(quat, rpy);
+            rpy[0] *= RAD2DEG;
+            rpy[1] *= RAD2DEG;
+            rpy[2] *= RAD2DEG;
+            UpdatePlotData(rpy);
 
             /*
              * Construct an attitude quaternion.
@@ -747,33 +830,6 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
             diffQ.normalize();
 
             lastQ = attiQ;
-
-            ui->plotData->graph(0)->setVisible(ui->checkDataX->isChecked());
-            ui->plotData->graph(1)->setVisible(ui->checkDataY->isChecked());
-            ui->plotData->graph(2)->setVisible(ui->checkDataZ->isChecked());
-            // add new data:
-            ui->plotData->graph(0)->addData(key, rpy[0] * RAD2DEG);
-            ui->plotData->graph(1)->addData(key, rpy[1] * RAD2DEG);
-            ui->plotData->graph(2)->addData(key, rpy[2] * RAD2DEG);
-            // remove data of lines that's outside visible range:
-            ui->plotData->graph(0)->removeDataBefore(key-8);
-            ui->plotData->graph(1)->removeDataBefore(key-8);
-            ui->plotData->graph(2)->removeDataBefore(key-8);
-            // rescale value (vertical) axis to fit the current data:
-            if (ui->plotData->graph(0)->visible()) {
-                ui->plotData->graph(0)->rescaleValueAxis();
-                fEnlarge = true;
-            }
-            if (ui->plotData->graph(1)->visible()) {
-                ui->plotData->graph(1)->rescaleValueAxis(fEnlarge);
-                fEnlarge = true;
-            }
-            if (ui->plotData->graph(2)->visible()) {
-                ui->plotData->graph(2)->rescaleValueAxis(fEnlarge);
-            }
-
-            ui->plotData->xAxis->setRange(key+0.25, 8, Qt::AlignRight);
-            ui->plotData->replot();
 
             ui->widget->rotateBy(&diffQ);
         } else {

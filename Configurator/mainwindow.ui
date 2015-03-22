@@ -297,6 +297,9 @@
           <property name="text">
            <string>Command</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -312,6 +315,9 @@
           </property>
           <property name="text">
            <string>Yaw:</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -529,12 +535,18 @@
           <property name="text">
            <string>Pitch:</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="1" column="3">
          <widget class="QLabel" name="labelNumPoles">
           <property name="text">
            <string>Poles, N</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -650,6 +662,9 @@
           <property name="text">
            <string>Power</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -676,6 +691,9 @@
           <property name="text">
            <string>Dead Time</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -691,6 +709,9 @@
           </property>
           <property name="text">
            <string>Roll:</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -807,6 +828,9 @@
           <property name="text">
            <string>Yaw:</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="3" column="0">
@@ -819,6 +843,9 @@
           </property>
           <property name="text">
            <string>Roll:</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -846,12 +873,18 @@
           <property name="text">
            <string>Pitch:</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="1" column="6">
          <widget class="QLabel" name="labelInputMeas">
           <property name="text">
            <string>Meas.</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -863,6 +896,9 @@
           <property name="text">
            <string>Max</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -872,6 +908,9 @@
          <widget class="QLabel" name="labelInputNeutral">
           <property name="text">
            <string>Neutral</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -883,6 +922,9 @@
           <property name="text">
            <string>Min</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -892,6 +934,9 @@
          <widget class="QLabel" name="labelInputChannel">
           <property name="text">
            <string>Channel #</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -908,6 +953,9 @@
           </property>
           <property name="text">
            <string>4095</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -1068,6 +1116,9 @@
           <property name="text">
            <string>4095</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="3" column="2">
@@ -1154,6 +1205,9 @@
           <property name="text">
            <string>4095</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
        </layout>
@@ -1167,6 +1221,9 @@
          <widget class="QLabel" name="labelOffset">
           <property name="text">
            <string>Offset</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -1258,6 +1315,9 @@
           <property name="text">
            <string>Yaw:</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="2" column="0">
@@ -1270,6 +1330,9 @@
           </property>
           <property name="text">
            <string>Pitch:</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -1284,12 +1347,18 @@
           <property name="text">
            <string>Roll:</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="1" column="3">
          <widget class="QLabel" name="labelMaxAngle">
           <property name="text">
            <string>Max angle</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -1301,6 +1370,9 @@
           <property name="text">
            <string>Min angle</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
           </property>
@@ -1310,6 +1382,9 @@
          <widget class="QLabel" name="labelMode">
           <property name="text">
            <string>Mode</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -1345,6 +1420,9 @@
          <widget class="QLabel" name="labelSpeed">
           <property name="text">
            <string>Speed</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -1528,12 +1606,18 @@
           <property name="text">
            <string>Meas.</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="2" column="6">
          <widget class="QLabel" name="labelOffsetPitch">
           <property name="text">
            <string>0°</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -1542,12 +1626,18 @@
           <property name="text">
            <string>0°</string>
           </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
+          </property>
          </widget>
         </item>
         <item row="5" column="6">
          <widget class="QLabel" name="labelOffsetYaw">
           <property name="text">
            <string>0°</string>
+          </property>
+          <property name="textFormat">
+           <enum>Qt::PlainText</enum>
           </property>
          </widget>
         </item>
@@ -1652,12 +1742,18 @@
              <property name="text">
               <string>Axis TOP</string>
              </property>
+             <property name="textFormat">
+              <enum>Qt::PlainText</enum>
+             </property>
             </widget>
            </item>
            <item row="1" column="0">
             <widget class="QLabel" name="labelSensor1AxisRight">
              <property name="text">
               <string>Axis RIGHT</string>
+             </property>
+             <property name="textFormat">
+              <enum>Qt::PlainText</enum>
              </property>
             </widget>
            </item>
@@ -1770,12 +1866,18 @@
              <property name="text">
               <string>Axis RIGHT</string>
              </property>
+             <property name="textFormat">
+              <enum>Qt::PlainText</enum>
+             </property>
             </widget>
            </item>
            <item row="0" column="0">
             <widget class="QLabel" name="labelSensor2AxisTop">
              <property name="text">
               <string>Axis TOP</string>
+             </property>
+             <property name="textFormat">
+              <enum>Qt::PlainText</enum>
              </property>
             </widget>
            </item>
@@ -1906,7 +2008,42 @@
            <widget class="QComboBox" name="comboData">
             <item>
              <property name="text">
-              <string>Attitude</string>
+              <string>IMU1 Attitude</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU2 Attitude</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU1 Gyroscope</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU2 Gyroscope</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU1 Accelerometer</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU2 Accelerometer</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU1 Gyroscope Bias</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU2 Gyroscope Bias</string>
              </property>
             </item>
            </widget>
