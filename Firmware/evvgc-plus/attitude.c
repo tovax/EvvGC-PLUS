@@ -123,7 +123,6 @@ InputModeStruct g_modeSettings[3] = {
 /**
  * Local variables
  */
-static qf16 qIMU2Prev = {0x00010000, 0x00000000, 0x00000000, 0x00000000};
 static fix16_t camRot[3] = {0.0f};
 static fix16_t camRotSpeedPrev[3] = {0.0f};
 
@@ -165,7 +164,13 @@ static float pidControllerApply(uint8_t cmd_id, fix16_t sp, fix16_t pv, fix16_t 
   fix16_t acceleration = fix16_sub(speed, PID[cmd_id].prevSpeed);
   step = fix16_add(step, fix16_mul(acceleration, PID[cmd_id].D));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  fix16_t disturbance = fix16_mul(fix16_sub(d, PID[cmd_id].prevDisturbance), poles2);
+  fix16_t disturbance = fix16_sub(d, PID[cmd_id].prevDisturbance);
+  if (disturbance > fix16_pi) {
+    disturbance = fix16_sub(disturbance, fix16_two_pi);
+  } else if (disturbance < -fix16_pi) {
+    disturbance = fix16_add(disturbance, fix16_two_pi);
+  }
+  disturbance = fix16_mul(disturbance, poles2);
   step = fix16_add(step, fix16_mul(disturbance, PID[cmd_id].F));
   /* Update offset of the motor: */
   g_motorOffset[cmd_id] = fix16_add(g_motorOffset[cmd_id], fix16_div(step, poles2));
@@ -372,9 +377,6 @@ void attitudeUpdate(PIMUStruct pIMU) {
   qf16_add(&pIMU->qIMU, &pIMU->qIMU, &dq);
   /* Normalize attitude quaternion. */
   qf16_normalize(&pIMU->qIMU, &pIMU->qIMU);
-
-  /* Convert attitude into Euler angles. */
-  //Quaternion2RPY(&pIMU->qIMU, &pIMU->rpy);
 }
 
 /**
@@ -448,8 +450,7 @@ void cameraRotationUpdate(void) {
  */
 void actuatorsUpdate(void) {
   float cmd = 0.0f;
-  qf16 qDiff1;
-  qf16 qDiff2;
+  qf16 qDiff;
   qf16 qTmp;
   v3d rpy1;
   v3d rpy2;
@@ -463,21 +464,13 @@ void actuatorsUpdate(void) {
    *   Quaternion multiplication is not commutative, therefore
    *   THE ORDER OF MULTIPLICATIONS IS VERY IMPORTANT!
    */
-  /* Invert previous direction of the IMU2 quaternion. */
-  qf16_conj(&qTmp, &qIMU2Prev);
-  /* Find the difference between previous and current directions of IMU2. */
-  qf16_mul(&qDiff1, &qTmp, &g_IMU2.qIMU);
-  /* Invert current direction of the IMU2 quaternion. */
+  /* Invert direction of the IMU2 quaternion. */
   qf16_conj(&qTmp, &g_IMU2.qIMU);
-  /* Find the difference between reference frames of IMU2 and IMU1. */
-  qf16_mul(&qDiff2, &qTmp, &g_IMU1.qIMU);
-  /* Rotate reference frame from IMU2 to reference frame of IMU1. */
-  qf16_mul(&qTmp, &qDiff1, &qDiff2);
-  /* Store IMU2 quaternion value for the next iteration. */
-  memcpy((void *)&qIMU2Prev, (void *)&g_IMU2.qIMU, sizeof(qf16));
+  /* Find the difference between directions of IMU2 and IMU1. */
+  qf16_mul(&qDiff, &qTmp, &g_IMU1.qIMU);
 
   Quaternion2RPY(&g_IMU1.qIMU, &rpy1);
-  Quaternion2RPY(&qTmp, &rpy2);
+  Quaternion2RPY(&qDiff, &rpy2);
 
   fix16_t *p1 = (fix16_t *)&rpy1;
   fix16_t *p2 = (fix16_t *)&rpy2;
