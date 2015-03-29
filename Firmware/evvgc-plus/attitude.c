@@ -143,15 +143,14 @@ static PIDStruct PID[3] = {
 /**
  * @brief  Implements basic PID stabilization of the motor speed with feed forward.
  * @param  cmd_id - command id to apply PID action to.
- * @param  sp - set-point value.
- * @param  pv - process variable value.
+ * @param  err - process error.
  * @param  d - disturbance value from the 2nd IMU.
  * @return weighted sum of P, I and D actions.
  */
-static float pidControllerApply(uint8_t cmd_id, fix16_t sp, fix16_t pv, fix16_t d) {
+static float pidControllerApply(uint8_t cmd_id, fix16_t err, fix16_t d) {
   fix16_t poles2 = fix16_from_int(g_pwmOutput[cmd_id].num_poles / 2);
-  /* Distance for the motor to travel: */
-  fix16_t distance = circadjust(fix16_sub(sp, pv), fix16_pi);
+  /* Error is a distance for the motor to travel: */
+  fix16_t distance = circadjust(err, fix16_pi);
   /* Convert mechanical distance to electrical distance: */
   distance = fix16_mul(distance, poles2);
   /* If there is a distance to travel then rotate the motor in small steps: */
@@ -452,8 +451,8 @@ void actuatorsUpdate(void) {
   float cmd = 0.0f;
   qf16 qDiff;
   qf16 qTmp;
-  v3d rpy1;
-  v3d rpy2;
+  v3d rpy;
+  v3d err;
 
   /**
    * NOTE:
@@ -464,35 +463,36 @@ void actuatorsUpdate(void) {
    *   Quaternion multiplication is not commutative, therefore
    *   THE ORDER OF MULTIPLICATIONS IS VERY IMPORTANT!
    */
+  Quaternion2RPY(&g_IMU1.qIMU, &rpy);
+  /* Find error of the process. */
+  v3d_sub(&err, (v3d *)camRot, &rpy);
   /* Invert direction of the IMU2 quaternion. */
   qf16_conj(&qTmp, &g_IMU2.qIMU);
   /* Find the difference between directions of IMU2 and IMU1. */
   qf16_mul(&qDiff, &qTmp, &g_IMU1.qIMU);
+  Quaternion2RPY(&qDiff, &rpy);
 
-  Quaternion2RPY(&g_IMU1.qIMU, &rpy1);
-  Quaternion2RPY(&qDiff, &rpy2);
-
-  fix16_t *p1 = (fix16_t *)&rpy1;
-  fix16_t *p2 = (fix16_t *)&rpy2;
+  fix16_t *p1 = (fix16_t *)&err;
+  fix16_t *p2 = (fix16_t *)&rpy;
 
   /* Pitch: */
   uint8_t cmd_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
+    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_PITCH, cmd);
   cmd = 0.0f;
   /* Roll: */
   cmd_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
+    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_ROLL, cmd);
   cmd = 0.0f;
   /* Yaw: */
   cmd_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, camRot[cmd_id], p1[cmd_id], p2[cmd_id]);
+    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
   }
   pwmOutputUpdate(PWM_OUT_YAW, cmd);
 }
