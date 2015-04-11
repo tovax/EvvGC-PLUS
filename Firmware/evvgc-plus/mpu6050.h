@@ -80,7 +80,7 @@ typedef struct tagIMUStruct {
   v3d accelBias;        /* Accelerometer bias.             */
   v3d gyroBias;         /* Gyroscope bias.                 */
   v3d accelFiltered;    /* Filtered accelerometer data.    */
-  v3d grotFiltered;     /* Filtered direction of gravity.  */
+  v3d v2Filtered;       /* Filtered direction of gravity.  */
   qf16 qIMU;            /* Attitude quaternion of the IMU. */
   uint32_t clbrCounter; /* Calibration counter             */
   uint8_t axes_conf[3]; /* Configuration of IMU axes.      */
@@ -94,7 +94,9 @@ typedef struct tagI2CErrorStruct {
 
 /* IMU data structure. */
 extern IMUStruct g_IMU1;
+#if defined(USE_SECOND_IMU)
 extern IMUStruct g_IMU2;
+#endif /* USE_SECOND_IMU */
 /* Packed sensor settings. */
 extern uint8_t g_sensorSettings[3];
 /* I2C error info structure. */

@@ -72,6 +72,11 @@ include $(SRCDIR)/chibios_2.6.7/kernel/kernel.mk
 include $(SRCDIR)/libraries/libfixmath/fixmath.mk
 include $(SRCDIR)/libraries/libfixmatrix/fixmatrix.mk
 
+# Include code for the second IMU here
+ifeq ($(USE_SECOND_IMU),yes)
+  USE_OPT += -DUSE_SECOND_IMU
+endif
+
 # Define linker script file here
 ifeq ($(USE_USB_BL),yes)
   LDSCRIPT= $(PORTLD)/STM32F103xC_BL.ld

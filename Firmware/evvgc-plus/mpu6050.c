@@ -58,7 +58,9 @@ uint8_t g_sensorSettings[3] = {
 
 /* IMU data structure. */
 IMUStruct g_IMU1;
+#if defined(USE_SECOND_IMU)
 IMUStruct g_IMU2;
+#endif /* USE_SECOND_IMU */
 
 /* I2C error info structure. */
 I2CErrorStruct g_i2cErrorInfo = {0, 0};
@@ -103,9 +105,9 @@ void imuCalibrationSet(uint8_t flags) {
 }
 
 /**
- * @brief  Initialization function of IMU data structure.
+ * @brief  Calibration function of IMU.
  * @param  pIMU - pointer to IMU data structure;
- * @param  fCalibrateAccel - accelerometer calibraton flag;
+ * @param  fCalibrateAccel - accelerometer calibration flag;
  * @return 0 - if calibration is not finished;
  *         1 - if calibration is finished.
  */
@@ -285,7 +287,9 @@ void sensorSettingsUpdate(const uint8_t *pNewSettings) {
   memcpy((void *)g_sensorSettings, (void *)pNewSettings, sizeof(g_sensorSettings));
   for (i = 0; i < 3; i++) {
     g_IMU1.axes_conf[i] = g_sensorSettings[i] & IMU1_CONF_MASK;
+#if defined(USE_SECOND_IMU)
     g_IMU2.axes_conf[i] = g_sensorSettings[i] >> 4;
+#endif /* USE_SECOND_IMU */
   }
 }
 

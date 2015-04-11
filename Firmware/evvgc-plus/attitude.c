@@ -69,7 +69,8 @@
 #define PID_COEF_SCALE_D        F16( 1.0f )
 #define PID_COEF_SCALE_F        F16( 0.01f )
 
-static const fix16_t fix16_two = 0x00020000; /*!< fix16_t value of 2 */
+static const fix16_t fix16_half = 0x00008000; /*!< fix16_t value of 0.5. */
+static const fix16_t fix16_two  = 0x00020000; /*!< fix16_t value of 2. */
 
 /* PID controller structure. */
 typedef struct tagPIDStruct {
@@ -79,7 +80,6 @@ typedef struct tagPIDStruct {
   fix16_t F;
   fix16_t prevDistance;
   fix16_t prevSpeed;
-  fix16_t prevDisturbance;
   fix16_t prevCommand;
 } __attribute__((packed)) PIDStruct, *PPIDStruct;
 
@@ -87,7 +87,7 @@ typedef struct tagPIDStruct {
  * Global variables.
  */
 /* Mechanical offset of the motors. */
-fix16_t g_motorOffset[3] = {0, 0, 0};
+fix16_t g_motorOffset[3] = {0};
 
 /**
  * Default closed loop with feed forward settings.
@@ -123,11 +123,16 @@ InputModeStruct g_modeSettings[3] = {
 /**
  * Local variables
  */
-static fix16_t camRot[3] = {0.0f};
-static fix16_t camRotSpeedPrev[3] = {0.0f};
+static fix16_t camAtti[3] = {0};
+static fix16_t camRot[3] = {0};
+#if defined(USE_SECOND_IMU)
+static fix16_t camRotPrev[3] = {0};
+static fix16_t diffIMUPrev[3] = {0};
+#endif /* USE_SECOND_IMU */
+static fix16_t camRotSpeedPrev[3] = {0};
 
-static fix16_t accelKp = 0;
-static fix16_t accelKi = 0;
+static fix16_t accel2Kp = 0;
+static fix16_t accel2Ki = 0;
 
 /* Accelerometer filter variables. */
 static uint8_t fAccelFilterEnabled = TRUE;
@@ -135,48 +140,52 @@ static fix16_t accel_alpha = 0;
 
 /* PID controller parameters. */
 static PIDStruct PID[3] = {
-  {0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, 0},
-  {0, 0, 0, 0, 0, 0, 0, 0}
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0},
+  {0, 0, 0, 0, 0, 0, 0}
 };
 
 /**
- * @brief  Implements basic PID stabilization of the motor speed with feed forward.
- * @param  cmd_id - command id to apply PID action to.
+ * @brief  Implements basic PID stabilization of the motor speed
+ *         with feed forward (if the 2nd IMU is enabled).
+ * @param  ch_id - channel id to apply PID action to.
  * @param  err - process error.
- * @param  d - disturbance value from the 2nd IMU.
+ * @param  rot - rotation command value.
+ * @param  db - disturbance value from the 2nd IMU.
  * @return weighted sum of P, I and D actions.
  */
-static float pidControllerApply(uint8_t cmd_id, fix16_t err, fix16_t d) {
-  fix16_t poles2 = fix16_from_int(g_pwmOutput[cmd_id].num_poles / 2);
+static float pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t db) {
+  fix16_t poles2 = fix16_from_int(g_pwmOutput[ch_id].num_poles / 2);
   /* Error is a distance for the motor to travel: */
   fix16_t distance = circadjust(err, fix16_pi);
   /* Convert mechanical distance to electrical distance: */
   distance = fix16_mul(distance, poles2);
   /* If there is a distance to travel then rotate the motor in small steps: */
-  fix16_t step = fix16_mul(distance, PID[cmd_id].I);
+  fix16_t step = fix16_mul(distance, PID[ch_id].I);
   step = constrain(step, MOTOR_STEP_LIMIT_MIN, MOTOR_STEP_LIMIT_MAX);
   /* Calculate proportional speed of the motor: */
-  fix16_t speed = fix16_sub(distance, PID[cmd_id].prevDistance);
-  step = fix16_add(step, fix16_mul(speed, PID[cmd_id].P));
+  fix16_t speed = fix16_sub(distance, PID[ch_id].prevDistance);
+  step = fix16_add(step, fix16_mul(speed, PID[ch_id].P));
   /* Account for the acceleration of the motor: */
-  fix16_t acceleration = fix16_sub(speed, PID[cmd_id].prevSpeed);
-  step = fix16_add(step, fix16_mul(acceleration, PID[cmd_id].D));
+  fix16_t acceleration = fix16_sub(speed, PID[ch_id].prevSpeed);
+  step = fix16_add(step, fix16_mul(acceleration, PID[ch_id].D));
+  /* Account for rotation command value: */
+  step = fix16_add(step, fix16_mul(rot, poles2));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  fix16_t disturbance = fix16_sub(d, PID[cmd_id].prevDisturbance);
-  if (disturbance > fix16_pi) {
-    disturbance = fix16_sub(disturbance, fix16_two_pi);
-  } else if (disturbance < -fix16_pi) {
-    disturbance = fix16_add(disturbance, fix16_two_pi);
+  if (db > fix16_pi) {
+    db = fix16_sub(db, fix16_two_pi);
+  } else if (db < -fix16_pi) {
+    db = fix16_add(db, fix16_two_pi);
   }
-  disturbance = fix16_mul(disturbance, poles2);
-  step = fix16_add(step, fix16_mul(disturbance, PID[cmd_id].F));
+  /* Convert mechanical disturbance to electrical disturbance: */
+  db = fix16_mul(db, poles2);
+  step = fix16_add(step, fix16_mul(db, PID[ch_id].F));
   /* Update offset of the motor: */
-  g_motorOffset[cmd_id] = fix16_add(g_motorOffset[cmd_id], fix16_div(step, poles2));
+  g_motorOffset[ch_id] = fix16_add(g_motorOffset[ch_id], fix16_div(step, poles2));
   /* Wind-up guard limits motor offset range to one mechanical rotation: */
-  g_motorOffset[cmd_id] = circadjust(g_motorOffset[cmd_id], fix16_pi);
+  g_motorOffset[ch_id] = circadjust(g_motorOffset[ch_id], fix16_pi);
   /* Update motor position: */
-  fix16_t cmd = fix16_add(PID[cmd_id].prevCommand, step);
+  fix16_t cmd = fix16_add(PID[ch_id].prevCommand, step);
   /* Normalize command to -M_PI..M_PI range: */
   if (cmd < -fix16_pi) {
     do {
@@ -188,10 +197,9 @@ static float pidControllerApply(uint8_t cmd_id, fix16_t err, fix16_t d) {
     } while (cmd > fix16_pi);
   }
   /* Save values for the next iteration: */
-  PID[cmd_id].prevDistance    = distance;
-  PID[cmd_id].prevSpeed       = speed;
-  PID[cmd_id].prevDisturbance = d;
-  PID[cmd_id].prevCommand     = cmd;
+  PID[ch_id].prevDistance    = distance;
+  PID[ch_id].prevSpeed       = speed;
+  PID[ch_id].prevCommand     = cmd;
   return cmd;
 }
 
@@ -295,14 +303,14 @@ static void RPY2Quaternion (const v3d *rpy, qf16 *q) {
   tmp2 = fix16_mul(sphi, fix16_mul(stheta, cpsi));
   q->d = fix16_sub(tmp1, tmp2);
 }
-#endif // 0
+#endif /* 0 */
 /**
  * @brief
  */
 void attitudeInit(void) {
   pidUpdateStruct();
-  accelKp = fix16_from_float(0.02f / FIXED_DT_STEP);
-  accelKi = fix16_from_float(0.0005f);
+  accel2Kp = fix16_from_float(30.0f);
+  accel2Ki = fix16_from_float(0.001f);
   accel_alpha = fix16_exp(fix16_from_float(-FIXED_DT_STEP / ACCEL_TAU));
 }
 
@@ -317,43 +325,42 @@ void attitudeUpdate(PIMUStruct pIMU) {
 
   /* Remove bias from accelerometer data. */
   v3d_sub(&pIMU->accelData, &pIMU->accelData, &pIMU->accelBias);
-  /* Remove bias from gyroscope data. */
-  v3d_sub(&pIMU->gyroData, &pIMU->gyroData, &pIMU->gyroBias);
 
-  // Account for acceleration magnitude.
+  /* Account for acceleration magnitude. */
   mag = v3d_norm(&pIMU->accelData);
 
   if ((mag > GRAV_LIMIT_LOW) && (mag < GRAV_LIMIT_HIGH)) {
-    // Rotate gravity to body frame and cross with accelerometer data.
-    tmp.x = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.d);
-    tmp.x = fix16_sub(tmp.x, fix16_mul(pIMU->qIMU.a, pIMU->qIMU.c));
-    tmp.y = fix16_mul(pIMU->qIMU.c, pIMU->qIMU.d);
-    tmp.y = fix16_add(tmp.y, fix16_mul(pIMU->qIMU.a, pIMU->qIMU.b));
+    // Get estimated gravity vector halved and cross with accelerometer data.
+    tmp.x = fix16_mul(pIMU->qIMU.a, pIMU->qIMU.c);
+    tmp.x = fix16_sub(tmp.x, fix16_mul(pIMU->qIMU.b, pIMU->qIMU.d));
+    tmp.y = fix16_mul(pIMU->qIMU.a, pIMU->qIMU.b);
+    tmp.y = fix16_add(tmp.y, fix16_mul(pIMU->qIMU.c, pIMU->qIMU.d));
+    tmp.y = -tmp.y;
     tmp.z = fix16_mul(pIMU->qIMU.b, pIMU->qIMU.b);
     tmp.z = fix16_add(tmp.z, fix16_mul(pIMU->qIMU.c, pIMU->qIMU.c));
-    v3d_mul_s(&tmp, &tmp, fix16_two);
-    tmp.x = -tmp.x;
-    tmp.y = -tmp.y;
-    tmp.z = fix16_sub(tmp.z, fix16_one);
+    tmp.z = fix16_sub(tmp.z, fix16_half);
 
     // Apply smoothing to accel values, to reduce vibration noise before main calculations.
     accelFilterApply(&pIMU->accelData, &pIMU->accelFiltered);
     // Apply the same filtering to the rotated attitude to match phase shift.
-    accelFilterApply(&tmp, &pIMU->grotFiltered);
+    accelFilterApply(&tmp, &pIMU->v2Filtered);
     // Compute the error between the predicted direction of gravity and smoothed acceleration.
-    v3d_cross(&accelErr, &pIMU->accelFiltered, &pIMU->grotFiltered);
+    v3d_cross(&accelErr, &pIMU->accelFiltered, &pIMU->v2Filtered);
 
     // Normalize accel_error.
     v3d_div_s(&accelErr, &accelErr, mag);
   }
 
   // Correct rates based on error.
-  v3d_mul_s(&tmp, &accelErr, accelKp);
+  v3d_mul_s(&tmp, &accelErr, accel2Kp);
   v3d_add(&pIMU->gyroData, &pIMU->gyroData, &tmp);
 
-  // Correct rates based on error.
-  v3d_mul_s(&tmp, &accelErr, accelKi);
+  // Correct bias based on error.
+  v3d_mul_s(&tmp, &accelErr, accel2Ki);
   v3d_sub(&pIMU->gyroBias, &pIMU->gyroBias, &tmp);
+
+  /* Remove bias from gyroscope data. */
+  v3d_sub(&pIMU->gyroData, &pIMU->gyroData, &pIMU->gyroBias);
 
   // Calculate derivative of the attitude quaternion.
   dq.a = fix16_mul(pIMU->qIMU.b, pIMU->gyroData.x);
@@ -438,9 +445,7 @@ void cameraRotationUpdate(void) {
       }
     }
     coef = constrain(coef, -speedLimit, speedLimit);
-    coef = fix16_mul(coef, fix16_from_float(FIXED_DT_STEP));
-    camRot[i] = fix16_add(camRot[i], coef);
-    camRot[i] = circadjust(camRot[i], fix16_pi);
+    camRot[i] = fix16_mul(coef, fix16_from_float(FIXED_DT_STEP));
   }
 }
 
@@ -449,11 +454,25 @@ void cameraRotationUpdate(void) {
  */
 void actuatorsUpdate(void) {
   float cmd = 0.0f;
+  v3d tmp;
+  v3d err;
+  v3d db;
+#if defined(USE_SECOND_IMU)
   qf16 qDiff;
   qf16 qTmp;
-  v3d rpy;
-  v3d err;
+#endif /* USE_SECOND_IMU */
 
+  Quaternion2RPY(&g_IMU1.qIMU, &tmp);
+  /* Find error of the process. */
+  v3d_sub(&err, (v3d *)camAtti, &tmp);
+  /* Update attitude of the camera by amount of commanded rotation. */
+  v3d_add((v3d *)camAtti, (v3d *)camAtti, (v3d *)camRot);
+
+  camAtti[0] = circadjust(camAtti[0], fix16_pi);
+  camAtti[1] = circadjust(camAtti[1], fix16_pi);
+  camAtti[2] = circadjust(camAtti[2], fix16_pi);
+
+#if defined(USE_SECOND_IMU)
   /**
    * NOTE:
    *   The following section uses quaternion mathematics to transform
@@ -463,36 +482,46 @@ void actuatorsUpdate(void) {
    *   Quaternion multiplication is not commutative, therefore
    *   THE ORDER OF MULTIPLICATIONS IS VERY IMPORTANT!
    */
-  Quaternion2RPY(&g_IMU1.qIMU, &rpy);
-  /* Find error of the process. */
-  v3d_sub(&err, (v3d *)camRot, &rpy);
+
   /* Invert direction of the IMU2 quaternion. */
   qf16_conj(&qTmp, &g_IMU2.qIMU);
-  /* Find the difference between directions of IMU2 and IMU1. */
+  /* Find the difference between attitudes of IMU2 and IMU1. */
   qf16_mul(&qDiff, &qTmp, &g_IMU1.qIMU);
-  Quaternion2RPY(&qDiff, &rpy);
+  Quaternion2RPY(&qDiff, &tmp);
+  /* Compute disturbance value. */
+  v3d_sub(&db, &tmp, (v3d *)diffIMUPrev);
+  /* Store attitude difference value of two IMUs. */
+  memcpy((void *)diffIMUPrev, (void *)&tmp, sizeof(tmp));
+  /* If there was a commanded rotation of the camera then
+     the rotation is sensed as disturbance to be rejected. */
+  v3d_add(&db, &db, (v3d *)camRotPrev);
+  /* Store commanded camera rotation value. */
+  memcpy((void *)camRotPrev, (void *)camRot, sizeof(camRot));
+#else
+  memset((void *)&db, 0, sizeof(db));
+#endif /* USE_SECOND_IMU */
 
   fix16_t *p1 = (fix16_t *)&err;
-  fix16_t *p2 = (fix16_t *)&rpy;
+  fix16_t *p2 = (fix16_t *)&db;
 
   /* Pitch: */
-  uint8_t cmd_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
-  if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
+  uint8_t ch_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (ch_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);
   }
   pwmOutputUpdate(PWM_OUT_PITCH, cmd);
   cmd = 0.0f;
   /* Roll: */
-  cmd_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
-  if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
+  ch_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (ch_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);
   }
   pwmOutputUpdate(PWM_OUT_ROLL, cmd);
   cmd = 0.0f;
   /* Yaw: */
-  cmd_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
-  if (cmd_id != PWM_OUT_CMD_DISABLED) {
-    cmd = pidControllerApply(cmd_id, p1[cmd_id], p2[cmd_id]);
+  ch_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
+  if (ch_id != PWM_OUT_CMD_DISABLED) {
+    cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);
   }
   pwmOutputUpdate(PWM_OUT_YAW, cmd);
 }
