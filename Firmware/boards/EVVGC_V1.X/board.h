@@ -42,7 +42,7 @@
  * IO pins assignments.
  */
 #define GPIOA_USB_DP            12
-#define GPIOB_LED_RED           12
+#define GPIOB_LED_A             12
 
 
 /*

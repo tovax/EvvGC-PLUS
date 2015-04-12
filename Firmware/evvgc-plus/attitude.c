@@ -123,13 +123,12 @@ InputModeStruct g_modeSettings[3] = {
 /**
  * Local variables
  */
-static fix16_t camAtti[3] = {0};
+static v3d camAtti = {0};
 static fix16_t camRot[3] = {0};
-#if defined(USE_SECOND_IMU)
-static fix16_t camRotPrev[3] = {0};
-static fix16_t diffIMUPrev[3] = {0};
-#endif /* USE_SECOND_IMU */
 static fix16_t camRotSpeedPrev[3] = {0};
+#if !defined(USE_ONE_IMU)
+static v3d rpyIMU2Prev = {0};
+#endif /* USE_ONE_IMU */
 
 static fix16_t accel2Kp = 0;
 static fix16_t accel2Ki = 0;
@@ -172,11 +171,7 @@ static float pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t
   /* Account for rotation command value: */
   step = fix16_add(step, fix16_mul(rot, poles2));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  if (db > fix16_pi) {
-    db = fix16_sub(db, fix16_two_pi);
-  } else if (db < -fix16_pi) {
-    db = fix16_add(db, fix16_two_pi);
-  }
+  db = circadjust(db, fix16_pi);
   /* Convert mechanical disturbance to electrical disturbance: */
   db = fix16_mul(db, poles2);
   step = fix16_add(step, fix16_mul(db, PID[ch_id].F));
@@ -197,9 +192,9 @@ static float pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t
     } while (cmd > fix16_pi);
   }
   /* Save values for the next iteration: */
-  PID[ch_id].prevDistance    = distance;
-  PID[ch_id].prevSpeed       = speed;
-  PID[ch_id].prevCommand     = cmd;
+  PID[ch_id].prevDistance = distance;
+  PID[ch_id].prevSpeed    = speed;
+  PID[ch_id].prevCommand  = cmd;
   return cmd;
 }
 
@@ -242,7 +237,7 @@ static void accelFilterApply(const v3d *raw, v3d *filtered) {
  *        2. roll (Y);
  *        3. yaw (Z).
  */
-static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
+static void qf16_to_rpy(const qf16 *q, v3d *rpy) {
   fix16_t R13, R11, R12, R23, R33;
   fix16_t qCs = fix16_mul(q->c, q->c);
 
@@ -274,7 +269,7 @@ static void Quaternion2RPY(const qf16 *q, v3d *rpy) {
  *        2. roll (Y);
  *        3. yaw (Z).
  */
-static void RPY2Quaternion (const v3d *rpy, qf16 *q) {
+static void qf16_from_rpy(const v3d *rpy, qf16 *q) {
   fix16_t phi, theta, psi;
   fix16_t cphi, sphi, ctheta, stheta, cpsi, spsi;
   fix16_t tmp1, tmp2;
@@ -304,6 +299,43 @@ static void RPY2Quaternion (const v3d *rpy, qf16 *q) {
   q->d = fix16_sub(tmp1, tmp2);
 }
 #endif /* 0 */
+
+/**
+ * @brief  Rotates vector v by rotation quaternion q.
+ * @param  r - rotated vector.
+ * @param  v - vector to be rotated.
+ * @param  q - rotation quaternion.
+ */
+static void v3d_rot(v3d *r, const v3d *v, const qf16 *q) {
+  fix16_t tmp;
+
+  tmp = fix16_sub(fix16_half, fix16_mul(q->c, q->c));
+  tmp = fix16_sub(tmp, fix16_mul(q->d, q->d));
+  r->x = fix16_mul(tmp, v->x);
+  tmp = fix16_sub(fix16_mul(q->b, q->c), fix16_mul(q->a, q->d));
+  r->x = fix16_add(r->x, fix16_mul(tmp, v->y));
+  tmp = fix16_add(fix16_mul(q->b, q->d), fix16_mul(q->a, q->c));
+  r->x = fix16_add(r->x, fix16_mul(tmp, v->z));
+
+  tmp = fix16_sub(fix16_half, fix16_mul(q->b, q->b));
+  tmp = fix16_sub(tmp, fix16_mul(q->d, q->d));
+  r->y = fix16_mul(tmp, v->y);
+  tmp = fix16_sub(fix16_mul(q->c, q->d), fix16_mul(q->a, q->b));
+  r->y = fix16_add(r->y, fix16_mul(tmp, v->z));
+  tmp = fix16_add(fix16_mul(q->b, q->c), fix16_mul(q->a, q->d));
+  r->y = fix16_add(r->y, fix16_mul(tmp, v->x));
+
+  tmp = fix16_sub(fix16_half, fix16_mul(q->b, q->b));
+  tmp = fix16_sub(tmp, fix16_mul(q->c, q->c));
+  r->z = fix16_mul(tmp, v->z);
+  tmp = fix16_sub(fix16_mul(q->b, q->d), fix16_mul(q->a, q->c));
+  r->z = fix16_add(r->z, fix16_mul(tmp, v->x));
+  tmp = fix16_add(fix16_mul(q->c, q->d), fix16_mul(q->a, q->b));
+  r->z = fix16_add(r->z, fix16_mul(tmp, v->y));
+
+  v3d_mul_s(r, r, fix16_two);
+}
+
 /**
  * @brief
  */
@@ -383,6 +415,8 @@ void attitudeUpdate(PIMUStruct pIMU) {
   qf16_add(&pIMU->qIMU, &pIMU->qIMU, &dq);
   /* Normalize attitude quaternion. */
   qf16_normalize(&pIMU->qIMU, &pIMU->qIMU);
+  /* Convert to Euler angles. */
+  qf16_to_rpy(&pIMU->qIMU, &pIMU->rpyIMU);
 }
 
 /**
@@ -454,52 +488,29 @@ void cameraRotationUpdate(void) {
  */
 void actuatorsUpdate(void) {
   float cmd = 0.0f;
-  v3d tmp;
   v3d err;
   v3d db;
-#if defined(USE_SECOND_IMU)
-  qf16 qDiff;
-  qf16 qTmp;
-#endif /* USE_SECOND_IMU */
 
-  Quaternion2RPY(&g_IMU1.qIMU, &tmp);
   /* Find error of the process. */
-  v3d_sub(&err, (v3d *)camAtti, &tmp);
+  v3d_sub(&err, &camAtti, &g_IMU1.rpyIMU);
   /* Update attitude of the camera by amount of commanded rotation. */
-  v3d_add((v3d *)camAtti, (v3d *)camAtti, (v3d *)camRot);
+  v3d_add(&camAtti, &camAtti, (v3d *)camRot);
 
-  camAtti[0] = circadjust(camAtti[0], fix16_pi);
-  camAtti[1] = circadjust(camAtti[1], fix16_pi);
-  camAtti[2] = circadjust(camAtti[2], fix16_pi);
+  camAtti.x = circadjust(camAtti.x, fix16_pi);
+  camAtti.y = circadjust(camAtti.y, fix16_pi);
+  camAtti.z = circadjust(camAtti.z, fix16_pi);
 
-#if defined(USE_SECOND_IMU)
-  /**
-   * NOTE:
-   *   The following section uses quaternion mathematics to transform
-   *   measured disturbance value by IMU2 in 3D space from reference
-   *   frame of IMU2 to reference frame of IMU1 (camera frame).
-   *
-   *   Quaternion multiplication is not commutative, therefore
-   *   THE ORDER OF MULTIPLICATIONS IS VERY IMPORTANT!
-   */
-
-  /* Invert direction of the IMU2 quaternion. */
-  qf16_conj(&qTmp, &g_IMU2.qIMU);
-  /* Find the difference between attitudes of IMU2 and IMU1. */
-  qf16_mul(&qDiff, &qTmp, &g_IMU1.qIMU);
-  Quaternion2RPY(&qDiff, &tmp);
+#if !defined(USE_ONE_IMU)
+  v3d diff;
   /* Compute disturbance value. */
-  v3d_sub(&db, &tmp, (v3d *)diffIMUPrev);
-  /* Store attitude difference value of two IMUs. */
-  memcpy((void *)diffIMUPrev, (void *)&tmp, sizeof(tmp));
-  /* If there was a commanded rotation of the camera then
-     the rotation is sensed as disturbance to be rejected. */
-  v3d_add(&db, &db, (v3d *)camRotPrev);
-  /* Store commanded camera rotation value. */
-  memcpy((void *)camRotPrev, (void *)camRot, sizeof(camRot));
+  v3d_sub(&diff, &rpyIMU2Prev, &g_IMU2.rpyIMU);
+  /* Rotate disturbance. */
+  v3d_rot(&db, &diff, &g_IMU2.qIMU);
+  /* Store attitude value of the second IMU. */
+  memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
 #else
   memset((void *)&db, 0, sizeof(db));
-#endif /* USE_SECOND_IMU */
+#endif /* USE_ONE_IMU */
 
   fix16_t *p1 = (fix16_t *)&err;
   fix16_t *p2 = (fix16_t *)&db;

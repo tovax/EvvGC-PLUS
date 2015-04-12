@@ -58,9 +58,9 @@ uint8_t g_sensorSettings[3] = {
 
 /* IMU data structure. */
 IMUStruct g_IMU1;
-#if defined(USE_SECOND_IMU)
+#if !defined(USE_ONE_IMU)
 IMUStruct g_IMU2;
-#endif /* USE_SECOND_IMU */
+#endif /* USE_ONE_IMU */
 
 /* I2C error info structure. */
 I2CErrorStruct g_i2cErrorInfo = {0, 0};
@@ -287,9 +287,9 @@ void sensorSettingsUpdate(const uint8_t *pNewSettings) {
   memcpy((void *)g_sensorSettings, (void *)pNewSettings, sizeof(g_sensorSettings));
   for (i = 0; i < 3; i++) {
     g_IMU1.axes_conf[i] = g_sensorSettings[i] & IMU1_CONF_MASK;
-#if defined(USE_SECOND_IMU)
+#if !defined(USE_ONE_IMU)
     g_IMU2.axes_conf[i] = g_sensorSettings[i] >> 4;
-#endif /* USE_SECOND_IMU */
+#endif /* USE_ONE_IMU */
   }
 }
 
