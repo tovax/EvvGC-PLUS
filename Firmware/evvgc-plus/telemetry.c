@@ -284,6 +284,18 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
 #endif /* USE_ONE_IMU */
+  case 'u': /* Outputs IMU1 accelerometer error; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU1.accelError, sizeof(g_IMU1.accelError));
+    pMsg->size = sizeof(g_IMU1.accelError) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+#if !defined(USE_ONE_IMU)
+  case 'v': /* Outputs IMU2 accelerometer error; */
+    memcpy((void *)pMsg->data, (void *)&g_IMU2.accelError, sizeof(g_IMU2.accelError));
+    pMsg->size = sizeof(g_IMU2.accelError) + TELEMETRY_MSG_SIZE;
+    pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
+    break;
+#endif /* USE_ONE_IMU */
   case '[': /* Calibrate IMU1 gyroscope. */
     imuCalibrationSet(IMU1_CALIBRATE_GYRO);
     telemetryPositiveResponse(pMsg);

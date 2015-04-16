@@ -94,13 +94,13 @@ static const fix16_t fix16_three = 0x00030000; /*!< fix16_t value of 3 */
  * Separation angle between phases.
  */
 #ifndef M_2PI_3
-#define M_2PI_3                 0x0002182A  // 2 * PI / 3;
+#define M_2PI_3                 0x0002182A  // (2 * PI / 3) in fix16 format;
 #endif
 
 /**
  * Amplitude scaling factor for third harmonic injection PWM.
  */
-#define THI_PWM_K               0x0001279A  // 2 / sqrt(3);
+#define THI_PWM_K               0x0001279A  // (2 / sqrt(3)) in fix16 format;
 
 /**
  * Local macros for dead time calculation.

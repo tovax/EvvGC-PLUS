@@ -145,6 +145,20 @@ static PIDStruct PID[3] = {
 };
 
 /**
+ * @brief  Bounds range to -PI..PI.
+ * @param  val - value to be bound.
+ * @return bounded value.
+ */
+static fix16_t fix16_circularize(fix16_t val) {
+  if (val > fix16_pi) {
+    val = fix16_sub(val, fix16_two_pi);
+  } else if (val < -fix16_pi) {
+    val = fix16_add(val, fix16_two_pi);
+  }
+  return val;
+}
+
+/**
  * @brief  Implements basic PID stabilization of the motor speed
  *         with feed forward (if the 2nd IMU is enabled).
  * @param  ch_id - channel id to apply PID action to.
@@ -153,10 +167,10 @@ static PIDStruct PID[3] = {
  * @param  db - disturbance value from the 2nd IMU.
  * @return weighted sum of P, I and D actions.
  */
-static float pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t db) {
+static fix16_t pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t db) {
   fix16_t poles2 = fix16_from_int(g_pwmOutput[ch_id].num_poles / 2);
   /* Error is a distance for the motor to travel: */
-  fix16_t distance = circadjust(err, fix16_pi);
+  fix16_t distance = fix16_circularize(err);
   /* Convert mechanical distance to electrical distance: */
   distance = fix16_mul(distance, poles2);
   /* If there is a distance to travel then rotate the motor in small steps: */
@@ -171,17 +185,17 @@ static float pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t
   /* Account for rotation command value: */
   step = fix16_add(step, fix16_mul(rot, poles2));
   /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  db = circadjust(db, fix16_pi);
+  db = fix16_circularize(db);
   /* Convert mechanical disturbance to electrical disturbance: */
   db = fix16_mul(db, poles2);
   step = fix16_add(step, fix16_mul(db, PID[ch_id].F));
   /* Update offset of the motor: */
   g_motorOffset[ch_id] = fix16_add(g_motorOffset[ch_id], fix16_div(step, poles2));
   /* Wind-up guard limits motor offset range to one mechanical rotation: */
-  g_motorOffset[ch_id] = circadjust(g_motorOffset[ch_id], fix16_pi);
+  g_motorOffset[ch_id] = fix16_circularize(g_motorOffset[ch_id]);
   /* Update motor position: */
   fix16_t cmd = fix16_add(PID[ch_id].prevCommand, step);
-  /* Normalize command to -M_PI..M_PI range: */
+  /* Bound command to -PI..PI range: */
   if (cmd < -fix16_pi) {
     do {
       cmd = fix16_add(cmd, fix16_two_pi);
@@ -300,8 +314,9 @@ static void qf16_from_rpy(const v3d *rpy, qf16 *q) {
 }
 #endif /* 0 */
 
+#if !defined(USE_ONE_IMU)
 /**
- * @brief  Rotates vector v by rotation quaternion q.
+ * @brief  Rotates vector v by rotation quaternion q (faster than qf16_rotate()).
  * @param  r - rotated vector.
  * @param  v - vector to be rotated.
  * @param  q - rotation quaternion.
@@ -335,13 +350,14 @@ static void v3d_rot(v3d *r, const v3d *v, const qf16 *q) {
 
   v3d_mul_s(r, r, fix16_two);
 }
+#endif /* USE_ONE_IMU */
 
 /**
  * @brief
  */
 void attitudeInit(void) {
   pidUpdateStruct();
-  accel2Kp = fix16_from_float(30.0f);
+  accel2Kp = fix16_from_float(20.0f);
   accel2Ki = fix16_from_float(0.001f);
   accel_alpha = fix16_exp(fix16_from_float(-FIXED_DT_STEP / ACCEL_TAU));
 }
@@ -382,6 +398,9 @@ void attitudeUpdate(PIMUStruct pIMU) {
     // Normalize accel_error.
     v3d_div_s(&accelErr, &accelErr, mag);
   }
+
+  // Store accelError values.
+  memcpy((void *)&pIMU->accelError, (void *)&accelErr, sizeof(accelErr));
 
   // Correct rates based on error.
   v3d_mul_s(&tmp, &accelErr, accel2Kp);
@@ -487,7 +506,6 @@ void cameraRotationUpdate(void) {
  * @brief
  */
 void actuatorsUpdate(void) {
-  float cmd = 0.0f;
   v3d err;
   v3d db;
 
@@ -496,9 +514,9 @@ void actuatorsUpdate(void) {
   /* Update attitude of the camera by amount of commanded rotation. */
   v3d_add(&camAtti, &camAtti, (v3d *)camRot);
 
-  camAtti.x = circadjust(camAtti.x, fix16_pi);
-  camAtti.y = circadjust(camAtti.y, fix16_pi);
-  camAtti.z = circadjust(camAtti.z, fix16_pi);
+  camAtti.x = fix16_circularize(camAtti.x);
+  camAtti.y = fix16_circularize(camAtti.y);
+  camAtti.z = fix16_circularize(camAtti.z);
 
 #if !defined(USE_ONE_IMU)
   v3d diff;
@@ -508,6 +526,27 @@ void actuatorsUpdate(void) {
   v3d_rot(&db, &diff, &g_IMU2.qIMU);
   /* Store attitude value of the second IMU. */
   memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
+  
+  fix16_t tmp;
+  fix16_t tmpY;
+  fix16_t tmpZ;
+  /* Rotate Roll and Yaw errors to the reference frame of the second IMU. */
+  tmp = fix16_sub(fix16_half, fix16_mul(g_IMU2.qIMU.b, g_IMU2.qIMU.b));
+  tmp = fix16_sub(tmp, fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
+  tmpY = fix16_mul(tmp, err.y);
+  tmp = fix16_add(fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.b), fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.d));
+  tmpY = fix16_add(tmpY, fix16_mul(tmp, err.z));
+  tmpY = fix16_mul(tmpY, fix16_two);
+
+  tmp = fix16_sub(fix16_half, fix16_mul(g_IMU2.qIMU.b, g_IMU2.qIMU.b));
+  tmp = fix16_sub(tmp, fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.c));
+  tmpZ = fix16_mul(tmp, err.z);
+  tmp = fix16_sub(fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.d), fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.b));
+  tmpZ = fix16_add(tmpZ, fix16_mul(tmp, err.y));
+  tmpZ = fix16_mul(tmpZ, fix16_two);
+
+  err.y = tmpY;
+  err.z = tmpZ;
 #else
   memset((void *)&db, 0, sizeof(db));
 #endif /* USE_ONE_IMU */
@@ -516,20 +555,21 @@ void actuatorsUpdate(void) {
   fix16_t *p2 = (fix16_t *)&db;
 
   /* Pitch: */
+  fix16_t cmd = 0;
   uint8_t ch_id = g_pwmOutput[PWM_OUT_PITCH].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (ch_id != PWM_OUT_CMD_DISABLED) {
     cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);
   }
   pwmOutputUpdate(PWM_OUT_PITCH, cmd);
-  cmd = 0.0f;
   /* Roll: */
+  cmd = 0;
   ch_id = g_pwmOutput[PWM_OUT_ROLL].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (ch_id != PWM_OUT_CMD_DISABLED) {
     cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);
   }
   pwmOutputUpdate(PWM_OUT_ROLL, cmd);
-  cmd = 0.0f;
   /* Yaw: */
+  cmd = 0;
   ch_id = g_pwmOutput[PWM_OUT_YAW].dt_cmd_id & PWM_OUT_CMD_ID_MASK;
   if (ch_id != PWM_OUT_CMD_DISABLED) {
     cmd = pidControllerApply(ch_id, p1[ch_id], camRot[ch_id], p2[ch_id]);

@@ -513,6 +513,12 @@ void MainWindow::ProcessTimeout()
         case 7:
             m_msg.msg_id = 'm';
             break;
+        case 8:
+            m_msg.msg_id = 'u';
+            break;
+        case 9:
+            m_msg.msg_id = 'v';
+            break;
         default:
             m_msg.msg_id = 'r';
         }
@@ -845,6 +851,19 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
         } else {
             qDebug() << "PID settings CRC32 mismatch:" << (msg.crc - TELEMETRY_MSG_SIZE_BYTES) \
                      << "|" << sizeof(PID);
+        }
+        break;
+    case 'u': /* Reads IMU1 accelerometer error. */
+    case 'v': /* Reads IMU2 accelerometer error. */
+        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 3)) {
+            pfix16Buf = (fix16_t *)(msg.data);
+            rpy[0] = fix16_to_float(pfix16Buf[0]);
+            rpy[1] = fix16_to_float(pfix16Buf[1]);
+            rpy[2] = fix16_to_float(pfix16Buf[2]);
+            UpdatePlotData(rpy);
+        } else {
+            qDebug() << "Acc error size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
+                     << "|" << (sizeof(fix16_t) * 3);
         }
         break;
     default:

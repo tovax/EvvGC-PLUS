@@ -34,7 +34,7 @@
         <item row="0" column="3">
          <widget class="QLabel" name="labelD">
           <property name="text">
-           <string>D</string>
+           <string>Derivative</string>
           </property>
           <property name="textFormat">
            <enum>Qt::PlainText</enum>
@@ -99,7 +99,7 @@
            <enum>QFrame::NoFrame</enum>
           </property>
           <property name="text">
-           <string>P</string>
+           <string>Proportional</string>
           </property>
           <property name="textFormat">
            <enum>Qt::PlainText</enum>
@@ -112,7 +112,7 @@
         <item row="0" column="2">
          <widget class="QLabel" name="labelI">
           <property name="text">
-           <string>I</string>
+           <string>Integral</string>
           </property>
           <property name="textFormat">
            <enum>Qt::PlainText</enum>
@@ -1740,7 +1740,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="labelSensor1AxisTop">
              <property name="text">
-              <string>Axis TOP</string>
+              <string>Axis TOP:</string>
              </property>
              <property name="textFormat">
               <enum>Qt::PlainText</enum>
@@ -1750,7 +1750,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="labelSensor1AxisRight">
              <property name="text">
-              <string>Axis RIGHT</string>
+              <string>Axis RIGHT:</string>
              </property>
              <property name="textFormat">
               <enum>Qt::PlainText</enum>
@@ -1779,32 +1779,6 @@
            </item>
           </layout>
          </widget>
-        </item>
-        <item row="1" column="0">
-         <spacer name="verticalSpacer_5">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="0" column="2">
-         <spacer name="horizontalSpacer">
-          <property name="orientation">
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
         </item>
         <item row="0" column="1">
          <widget class="QGroupBox" name="groupSensor2">
@@ -1864,7 +1838,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="labelSensor2AxisRight">
              <property name="text">
-              <string>Axis RIGHT</string>
+              <string>Axis RIGHT:</string>
              </property>
              <property name="textFormat">
               <enum>Qt::PlainText</enum>
@@ -1874,7 +1848,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="labelSensor2AxisTop">
              <property name="text">
-              <string>Axis TOP</string>
+              <string>Axis TOP:</string>
              </property>
              <property name="textFormat">
               <enum>Qt::PlainText</enum>
@@ -1938,6 +1912,69 @@
              </property>
              <property name="text">
               <string>Gyro Calibrate</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <spacer name="verticalSpacer_5">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="3">
+         <spacer name="horizontalSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="0" column="2">
+         <widget class="QGroupBox" name="groupCFilter">
+          <property name="title">
+           <string>Complementary Filter:</string>
+          </property>
+          <layout class="QFormLayout" name="formLayout">
+           <item row="0" column="0">
+            <widget class="QLabel" name="labelKp">
+             <property name="text">
+              <string>Kp:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QSpinBox" name="spinCFKp">
+             <property name="maximum">
+              <number>255</number>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="labelKi">
+             <property name="text">
+              <string>Ki:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="spinCFKi">
+             <property name="maximum">
+              <number>255</number>
              </property>
             </widget>
            </item>
@@ -2046,6 +2083,16 @@
               <string>IMU2 Gyroscope Bias</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>IMU1 Accel Error</string>
+             </property>
+            </item>
+            <item>
+             <property name="text">
+              <string>IMU2 Accel Error</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>
@@ -2094,6 +2141,8 @@
     <addaction name="actionRead"/>
     <addaction name="actionSet"/>
     <addaction name="actionSave"/>
+    <addaction name="separator"/>
+    <addaction name="actionBootloader"/>
    </widget>
    <addaction name="menuBoard"/>
   </widget>
@@ -2147,6 +2196,11 @@
    </property>
    <property name="text">
     <string>Set</string>
+   </property>
+  </action>
+  <action name="actionBootloader">
+   <property name="text">
+    <string>To Bootloader</string>
    </property>
   </action>
  </widget>
