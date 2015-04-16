@@ -33,8 +33,13 @@ uint32_t g_boardStatus = 0;
 /* I2C2 configuration for I2C driver 2 */
 static const I2CConfig i2cfg_d2 = {
   OPMODE_I2C,
+#if !defined(USE_ONE_IMU)
   400000,
   FAST_DUTY_CYCLE_2,
+#else
+  200000,
+  FAST_DUTY_CYCLE_16_9,
+#endif /* USE_ONE_IMU */
 };
 
 /* Virtual serial port over USB. */
