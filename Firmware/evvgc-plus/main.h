@@ -28,11 +28,19 @@
 #define IMU2_CALIBRATE_MASK     0x00000060
 #define IMU_CALIBRATION_MASK    0x00000078
 
+#define JUMP_TO_ROM_BOOTLOADER  0x01
+
+#define SYMVAL(sym) (uint32_t)(((uint8_t *)&(sym)) - ((uint8_t *)0))
+
 /**
  * Global variables
  */
+/* The end of RAM. */
+extern uint32_t __ram_end__;
 /* Status of the board. */
 extern uint32_t g_boardStatus;
+/* Main thread termination flag. */
+extern bool_t g_runMain;
 
 #ifdef __cplusplus
 extern "C" {

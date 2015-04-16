@@ -107,6 +107,7 @@ private slots:
     void HandleReadSettings();
     void HandleApplySettings();
     void HandleSaveSettings();
+    void ToBootloader();
     void ProcessTimeout();
     void HandleDataXClicked();
     void HandleDataYClicked();

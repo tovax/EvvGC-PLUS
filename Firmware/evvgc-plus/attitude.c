@@ -526,7 +526,7 @@ void actuatorsUpdate(void) {
   v3d_rot(&db, &diff, &g_IMU2.qIMU);
   /* Store attitude value of the second IMU. */
   memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
-  
+
   fix16_t tmp;
   fix16_t tmpY;
   fix16_t tmpZ;

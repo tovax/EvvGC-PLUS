@@ -29,6 +29,7 @@
 #define TELEMETRY_SLEEP_MS      20
 
 uint32_t g_boardStatus = 0;
+bool_t g_runMain = TRUE;
 
 /* I2C2 configuration for I2C driver 2 */
 static const I2CConfig i2cfg_d2 = {
@@ -57,7 +58,7 @@ static BinarySemaphore bsemIMU2DataReady;
 static WORKING_AREA(waBlinkerThread, 64);
 static msg_t BlinkerThread(void *arg) {
   (void)arg;
-  while (TRUE) {
+  while (!chThdShouldTerminate()) {
     systime_t time;
     if (g_boardStatus & IMU_CALIBRATION_MASK) {
       time = 50;
@@ -75,12 +76,12 @@ static msg_t BlinkerThread(void *arg) {
  * MPU6050 data polling thread. Times are in milliseconds.
  * This thread requests a new data from MPU6050 every 1.5 ms (@666 Hz).
  */
-static WORKING_AREA(waPollMPU6050Thread, 256);
+static WORKING_AREA(waPollMPU6050Thread, 512);
 static msg_t PollMPU6050Thread(void *arg) {
   systime_t time;
   (void)arg;
   time = chTimeNow();
-  while (TRUE) {
+  while (!chThdShouldTerminate()) {
     if (mpu6050GetNewData(&g_IMU1)) {
       chBSemSignal(&bsemIMU1DataReady);
     } else {
@@ -108,11 +109,11 @@ static msg_t PollMPU6050Thread(void *arg) {
  * - This thread is synchronized by PollMPU6050Thread thread.
  * - This thread has the highest priority level.
  */
-static WORKING_AREA(waAttitudeThread, 4096);
+static WORKING_AREA(waAttitudeThread, 8192);
 static msg_t AttitudeThread(void *arg) {
   (void)arg;
   attitudeInit();
-  while (TRUE) {
+  while (!chThdShouldTerminate()) {
     /* Process IMU1 new data ready event. */
     if (chBSemWait(&bsemIMU1DataReady) == RDY_OK) {
       if (g_boardStatus & IMU1_CALIBRATE_MASK) {
@@ -153,6 +154,10 @@ static msg_t AttitudeThread(void *arg) {
  * @details
  */
 int main(void) {
+  Thread *tpBlinker  = NULL;
+  Thread *tpPoller   = NULL;
+  Thread *tpAttitude = NULL;
+
   /* System initializations.
    * - HAL initialization, this also initializes the configured device drivers
    *   and performs the board-specific initializations.
@@ -225,9 +230,9 @@ int main(void) {
 #endif /* USE_ONE_IMU */
 
     /* Creates the MPU6050 polling thread and attitude calculation thread. */
-    chThdCreateStatic(waPollMPU6050Thread, sizeof(waPollMPU6050Thread),
+    tpPoller = chThdCreateStatic(waPollMPU6050Thread, sizeof(waPollMPU6050Thread),
       NORMALPRIO + 1, PollMPU6050Thread, NULL);
-    chThdCreateStatic(waAttitudeThread, sizeof(waAttitudeThread),
+    tpAttitude = chThdCreateStatic(waAttitudeThread, sizeof(waAttitudeThread),
       HIGHPRIO, AttitudeThread, NULL);
 
     /* Starts motor drivers. */
@@ -238,11 +243,11 @@ int main(void) {
   }
 
   /* Creates the blinker thread. */
-  chThdCreateStatic(waBlinkerThread, sizeof(waBlinkerThread),
+  tpBlinker = chThdCreateStatic(waBlinkerThread, sizeof(waBlinkerThread),
     LOWPRIO, BlinkerThread, NULL);
 
   /* Normal main() thread activity. */
-  while (TRUE) {
+  while (g_runMain) {
     g_chnp = serusbcfg.usbp->state == USB_ACTIVE ? (BaseChannel *)&SDU1 : (BaseChannel *)&SD4;
     telemetryReadSerialData();
     if ((g_boardStatus & EEPROM_24C02_DETECTED) && eepromIsDataLeft()) {
@@ -250,6 +255,36 @@ int main(void) {
     }
     chThdSleepMilliseconds(TELEMETRY_SLEEP_MS);
   }
-  /* This point should never be reached. */
+
+  /* Starting the shut-down sequence.*/
+  if (tpAttitude != NULL) {
+    chThdTerminate(tpAttitude); /* Requesting termination.                  */
+    chThdWait(tpAttitude);      /* Waiting for the actual termination.      */
+  }
+  if (tpPoller != NULL) {
+    chThdTerminate(tpPoller);   /* Requesting termination.                  */
+    chThdWait(tpPoller);        /* Waiting for the actual termination.      */
+  }
+  if (tpBlinker != NULL) {
+    chThdTerminate(tpBlinker);  /* Requesting termination.                  */
+    chThdWait(tpBlinker);       /* Waiting for the actual termination.      */
+  }
+
+  mixedInputStop();             /* Stopping mixed input devices.            */
+  pwmOutputStop();              /* Stopping pwm output devices.             */
+  i2cStop(&I2CD2);              /* Stopping I2C2 device.                    */
+  sdStop(&SD4);                 /* Stopping serial port 4.                  */
+  usbStop(serusbcfg.usbp);      /* Stopping USB port.                       */
+  usbDisconnectBus(serusbcfg.usbp);
+  sduStop(&SDU1);               /* Stopping serial-over-USB CDC driver.     */
+
+  chSysDisable();
+
+  /* Reset of all peripherals. */
+  rccResetAPB1(0xFFFFFFFF);
+  rccResetAPB2(0xFFFFFFFF);
+
+  NVIC_SystemReset();
+
   return 0;
 }

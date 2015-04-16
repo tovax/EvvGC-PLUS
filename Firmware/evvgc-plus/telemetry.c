@@ -174,6 +174,18 @@ static void telemetryProcessCommand(const PMessage pMsg) {
       telemetryNegativeResponse(pMsg);
     }
     break;
+  case 'X': /* Reboot the board. */
+    if ((pMsg->size - TELEMETRY_MSG_SIZE) == sizeof(uint8_t)) {
+      telemetryPositiveResponse(pMsg);
+    } else {
+      telemetryNegativeResponse(pMsg);
+    }
+    if (pMsg->data[0] & JUMP_TO_ROM_BOOTLOADER) {
+      /* Set ROM boot loader request magic signature to the end of RAM; */
+      *((uint32_t *)(SYMVAL(__ram_end__) - 4)) = 0xDEADBEEF; // 40KB STM32F103RC
+    }
+    g_runMain = FALSE;
+    break;
   case 'b': /* Outputs board status; */
     memcpy((void *)pMsg->data, (void *)&g_boardStatus, sizeof(g_boardStatus));
     pMsg->size = sizeof(g_boardStatus) + TELEMETRY_MSG_SIZE;
