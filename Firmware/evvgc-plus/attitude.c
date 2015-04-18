@@ -89,6 +89,10 @@ typedef struct tagPIDStruct {
 /* Mechanical offset of the motors. */
 fix16_t g_motorOffset[3] = {0};
 
+#if !defined(USE_ONE_IMU)
+qf16 qRotE;
+#endif /* USE_ONE_IMU */
+
 /**
  * Default closed loop with feed forward settings.
  */
@@ -527,26 +531,37 @@ void actuatorsUpdate(void) {
   /* Store attitude value of the second IMU. */
   memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
 
-  fix16_t tmp;
-  fix16_t tmpY;
-  fix16_t tmpZ;
-  /* Rotate Roll and Yaw errors to the reference frame of the second IMU. */
-  tmp = fix16_sub(fix16_half, fix16_mul(g_IMU2.qIMU.b, g_IMU2.qIMU.b));
-  tmp = fix16_sub(tmp, fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
-  tmpY = fix16_mul(tmp, err.y);
-  tmp = fix16_add(fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.b), fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.d));
-  tmpY = fix16_add(tmpY, fix16_mul(tmp, err.z));
-  tmpY = fix16_mul(tmpY, fix16_two);
+  fix16_t tA;
+  fix16_t tB;
+  fix16_t tC;
 
-  tmp = fix16_sub(fix16_half, fix16_mul(g_IMU2.qIMU.b, g_IMU2.qIMU.b));
-  tmp = fix16_sub(tmp, fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.c));
-  tmpZ = fix16_mul(tmp, err.z);
-  tmp = fix16_sub(fix16_mul(g_IMU2.qIMU.c, g_IMU2.qIMU.d), fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.b));
-  tmpZ = fix16_add(tmpZ, fix16_mul(tmp, err.y));
-  tmpZ = fix16_mul(tmpZ, fix16_two);
+  // This is not good; FIX IT!
+  tA = fix16_mul(g_IMU2.rpyIMU.z, fix16_half);
+  tB = fix16_cos(tA);
+  tC = fix16_sin(tA);
 
-  err.y = tmpY;
-  err.z = tmpZ;
+  qRotE.a = fix16_add(fix16_mul(g_IMU2.qIMU.a, tB), fix16_mul(g_IMU2.qIMU.d, tC));
+  qRotE.b = fix16_sub(fix16_mul(g_IMU2.qIMU.b, tB), fix16_mul(g_IMU2.qIMU.c, tC));
+  qRotE.c = fix16_add(fix16_mul(g_IMU2.qIMU.c, tB), fix16_mul(g_IMU2.qIMU.b, tC));
+  qRotE.d = fix16_sub(fix16_mul(g_IMU2.qIMU.d, tB), fix16_mul(g_IMU2.qIMU.a, tC));
+
+  /* Rotate Roll and Yaw errors to the reference frame of the second IMU with Yaw component removed. */
+  tA = fix16_sub(fix16_half, fix16_mul(qRotE.b, qRotE.b));
+  tA = fix16_sub(tA, fix16_mul(qRotE.d, qRotE.d));
+  tB = fix16_mul(tA, err.y);
+  tA = fix16_add(fix16_mul(qRotE.a, qRotE.b), fix16_mul(qRotE.c, qRotE.d));
+  tB = fix16_add(tB, fix16_mul(tA, err.z));
+  tB = fix16_mul(tB, fix16_two);
+
+  tA = fix16_sub(fix16_half, fix16_mul(qRotE.b, qRotE.b));
+  tA = fix16_sub(tA, fix16_mul(qRotE.c, qRotE.c));
+  tC = fix16_mul(tA, err.z);
+  tA = fix16_sub(fix16_mul(qRotE.c, qRotE.d), fix16_mul(qRotE.a, qRotE.b));
+  tC = fix16_add(tC, fix16_mul(tA, err.y));
+  tC = fix16_mul(tC, fix16_two);
+
+  err.y = tB;
+  err.z = tC;
 #else
   memset((void *)&db, 0, sizeof(db));
 #endif /* USE_ONE_IMU */
