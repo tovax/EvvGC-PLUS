@@ -2093,6 +2093,11 @@
               <string>IMU2 Accel Error</string>
              </property>
             </item>
+            <item>
+             <property name="text">
+              <string>Error Rotation Angle</string>
+             </property>
+            </item>
            </widget>
           </item>
          </layout>

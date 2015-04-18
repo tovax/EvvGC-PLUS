@@ -79,6 +79,7 @@ typedef struct tagI2CErrorStruct
 {
     quint32 last_i2c_error;
     quint32 i2c_error_counter;
+    quint32 i2c_timeout_counter;
 } __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
 
 typedef qint32 fix16_t;

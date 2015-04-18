@@ -16,6 +16,7 @@ public:
     ~GLWidget();
 
     void rotateBy(QQuaternion *q);
+    void setAttitude(QQuaternion *q);
 
 signals:
     void clicked();

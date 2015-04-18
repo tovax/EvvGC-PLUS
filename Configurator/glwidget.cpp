@@ -19,6 +19,12 @@ void GLWidget::rotateBy(QQuaternion *q)
     updateGL();
 }
 
+void GLWidget::setAttitude(QQuaternion *q)
+{
+    rotation = *q;
+    updateGL();
+}
+
 void GLWidget::initializeGL()
 {
     initializeOpenGLFunctions();

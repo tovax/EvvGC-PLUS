@@ -91,7 +91,7 @@ static quint8 amMtx[6][6] = {
     {1, 3, 6, 4, 0, 6},//-Z;
 };
 
-static I2CErrorStruct i2cErrorInfo = {0, 0};
+static I2CErrorStruct i2cErrorInfo = {0, 0, 0};
 
 /**
  * @brief Quaternion2RPY
@@ -539,6 +539,9 @@ void MainWindow::ProcessTimeout()
         case 9:
             m_msg.msg_id = 'v';
             break;
+        case 10:
+            m_msg.msg_id = 'z';
+            break;
         default:
             m_msg.msg_id = 'r';
         }
@@ -713,7 +716,8 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
         if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == sizeof(i2cErrorInfo)) {
             memcpy((void *)&i2cErrorInfo, (void *)msg.data, sizeof(i2cErrorInfo));
             qDebug() << "I2C Error Info:\r\n  I2C last error code:" << i2cErrorInfo.last_i2c_error \
-                     << "\r\n  I2C errors:" << i2cErrorInfo.i2c_error_counter;
+                     << "\r\n  I2C errors:" << i2cErrorInfo.i2c_error_counter \
+                     << "\r\n  I2C timeouts:" << i2cErrorInfo.i2c_timeout_counter;
         } else {
             qDebug() << "I2C error info size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
                      << "|" << sizeof(i2cErrorInfo);
@@ -845,19 +849,7 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
              */
             attiQ = QQuaternion(quat[0], quat[1], -quat[3], -quat[2]);
 
-            /*
-             * Find the difference between last attitude and current attitude.
-             * diffQ is a rotation quaternion that transforms lastQ into attiQ.
-             * Because attiQ is normalized quaternion, the inverse of attiQ is equal to
-             * conjugate of attiQ.
-             * NOTE! The order of multiplication IS IMPORTANT!
-            */
-            diffQ = attiQ.conjugate() * lastQ;
-            diffQ.normalize();
-
-            lastQ = attiQ;
-
-            ui->widget->rotateBy(&diffQ);
+            ui->widget->setAttitude(&attiQ);
         } else {
             qDebug() << "RPY size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
                      << "|" << (sizeof(float) * 4);
@@ -884,6 +876,31 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
         } else {
             qDebug() << "Acc error size mismatch:" << (msg.size - TELEMETRY_MSG_SIZE_BYTES) \
                      << "|" << (sizeof(fix16_t) * 3);
+        }
+        break;
+    case 'z': /* Reads error rotation quaternion. */
+        if ((msg.size - TELEMETRY_MSG_SIZE_BYTES) == (sizeof(fix16_t) * 4)) {
+            pfix16Buf = (fix16_t *)(msg.data);
+            quat[0] = fix16_to_float(pfix16Buf[0]);
+            quat[1] = fix16_to_float(pfix16Buf[1]);
+            quat[2] = fix16_to_float(pfix16Buf[2]);
+            quat[3] = fix16_to_float(pfix16Buf[3]);
+
+            Quaternion2RPY(quat, rpy);
+            rpy[0] *= RAD2DEG;
+            rpy[1] *= RAD2DEG;
+            rpy[2] *= RAD2DEG;
+            UpdatePlotData(rpy);
+
+            /*
+             * Construct an attitude quaternion.
+             * WARNING! OpenGL and IMU coordinate systems do not match.
+             * Adjust indexes and direction of rotations of IMU data to match
+             * OpenGL coordinate system.
+             */
+            attiQ = QQuaternion(quat[0], quat[1], -quat[3], -quat[2]);
+
+            ui->widget->setAttitude(&attiQ);
         }
         break;
     default:
