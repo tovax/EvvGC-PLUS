@@ -535,10 +535,9 @@ void actuatorsUpdate(void) {
   fix16_t tB;
   fix16_t tC;
 
-  // This is not good; FIX IT!
-  tA = fix16_mul(g_IMU2.rpyIMU.z, fix16_half);
-  tB = fix16_cos(tA);
-  tC = fix16_sin(tA);
+  tA = fix16_sub(fix16_one, fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
+  tB = fix16_sqrt(tA);
+  tC = g_IMU2.qIMU.d;
 
   qRotE.a = fix16_add(fix16_mul(g_IMU2.qIMU.a, tB), fix16_mul(g_IMU2.qIMU.d, tC));
   qRotE.b = fix16_sub(fix16_mul(g_IMU2.qIMU.b, tB), fix16_mul(g_IMU2.qIMU.c, tC));
