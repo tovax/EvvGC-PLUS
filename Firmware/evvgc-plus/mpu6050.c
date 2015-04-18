@@ -63,7 +63,7 @@ IMUStruct g_IMU2;
 #endif /* USE_ONE_IMU */
 
 /* I2C error info structure. */
-I2CErrorStruct g_i2cErrorInfo = {0, 0};
+I2CErrorStruct g_i2cErrorInfo = {0, 0, 0};
 
 /**
  * Local variables
@@ -158,6 +158,7 @@ uint8_t imuCalibrate(PIMUStruct pIMU, uint8_t fCalibrateAccel) {
  */
 uint8_t mpu6050Init(uint8_t addr) {
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   /* Reset all MPU6050 registers to their default values */
   mpu6050TXData[0] = MPU6050_PWR_MGMT_1;  // Start register address;
@@ -170,9 +171,12 @@ uint8_t mpu6050Init(uint8_t addr) {
 
   if (status != RDY_OK) {
     i2cReleaseBus(&I2CD2);
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -189,9 +193,12 @@ uint8_t mpu6050Init(uint8_t addr) {
 
   if (status != RDY_OK) {
     i2cReleaseBus(&I2CD2);
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -212,9 +219,12 @@ uint8_t mpu6050Init(uint8_t addr) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -230,6 +240,7 @@ uint8_t mpu6050Init(uint8_t addr) {
  */
 uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   /* Set the start register address for bulk data transfer. */
   mpu6050TXData[0] = MPU6050_ACCEL_XOUT_H;
@@ -239,9 +250,12 @@ uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }

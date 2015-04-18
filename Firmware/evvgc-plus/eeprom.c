@@ -82,6 +82,7 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
   uint8_t addrOffset;
   size_t numBytes;
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   eepromTXBuf[0] = addr;
   addrOffset = addr % EEPROM_24C02_PAGE_SIZE;
@@ -97,9 +98,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
       NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
     i2cReleaseBus(&I2CD2);
     if (status != RDY_OK) {
-      g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-      if (g_i2cErrorInfo.last_i2c_error) {
+      i2c_error = i2cGetErrors(&I2CD2);
+      if (i2c_error != I2CD_NO_ERROR) {
+        g_i2cErrorInfo.last_i2c_error = i2c_error;
         g_i2cErrorInfo.i2c_error_counter++;
+      } else {
+        g_i2cErrorInfo.i2c_timeout_counter++;
       }
       return 0;
     }
@@ -115,9 +119,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
         NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
       i2cReleaseBus(&I2CD2);
       if (status != RDY_OK) {
-        g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-        if (g_i2cErrorInfo.last_i2c_error) {
+        i2c_error = i2cGetErrors(&I2CD2);
+        if (i2c_error != I2CD_NO_ERROR) {
+          g_i2cErrorInfo.last_i2c_error = i2c_error;
           g_i2cErrorInfo.i2c_error_counter++;
+        } else {
+          g_i2cErrorInfo.i2c_timeout_counter++;
         }
         return 0;
       }
@@ -132,9 +139,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
         NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
       i2cReleaseBus(&I2CD2);
       if (status != RDY_OK) {
-        g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-        if (g_i2cErrorInfo.last_i2c_error) {
+        i2c_error = i2cGetErrors(&I2CD2);
+        if (i2c_error != I2CD_NO_ERROR) {
+          g_i2cErrorInfo.last_i2c_error = i2c_error;
           g_i2cErrorInfo.i2c_error_counter++;
+        } else {
+          g_i2cErrorInfo.i2c_timeout_counter++;
         }
         return 0;
       }

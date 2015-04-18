@@ -92,6 +92,7 @@ typedef struct tagIMUStruct {
 typedef struct tagI2CErrorStruct {
   i2cflags_t last_i2c_error;
   uint32_t i2c_error_counter;
+  uint32_t i2c_timeout_counter;
 } __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
 
 /* IMU data structure. */
