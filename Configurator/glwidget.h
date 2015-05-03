@@ -35,6 +35,8 @@ private:
     QVector3D rotationAxis;
     qreal angularSpeed;
     QQuaternion rotation;
+    QQuaternion cubeAttitude;
+    QQuaternion worldAttitude;
 
     GLuint textures[6];
     QVector<QVector3D> vertices;

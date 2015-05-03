@@ -847,7 +847,7 @@ void MainWindow::ProcessSerialMessages(const TelemetryMessage &msg)
              * Adjust indexes and direction of rotations of IMU data to match
              * OpenGL coordinate system.
              */
-            attiQ = QQuaternion(quat[0], quat[1], -quat[3], -quat[2]);
+            attiQ = QQuaternion(quat[0], quat[1], quat[3], -quat[2]);
 
             ui->widget->setAttitude(&attiQ);
         } else {

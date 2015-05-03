@@ -21,7 +21,7 @@ void GLWidget::rotateBy(QQuaternion *q)
 
 void GLWidget::setAttitude(QQuaternion *q)
 {
-    rotation = *q;
+    cubeAttitude = *q;
     updateGL();
 }
 
@@ -78,6 +78,8 @@ void GLWidget::paintGL()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    rotation = worldAttitude * cubeAttitude;
+
     QMatrix4x4 m;
     m.ortho(-0.5f, +0.5f, +0.5f, -0.5f, 4.0f, 15.0f);
     m.translate(0.0f, 0.0f, -10.0f);
@@ -118,12 +120,12 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() & Qt::LeftButton) {
         QVector3D n = QVector3D(diff.y(), -diff.x(), 0.0).normalized();
         rotationAxis = (rotationAxis + n).normalized();
-        rotation = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * rotation;
+        worldAttitude = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * worldAttitude;
         updateGL();
     } else if (event->buttons() & Qt::RightButton) {
         QVector3D n = QVector3D(diff.y(), 0.0, diff.x()).normalized();
         rotationAxis = (rotationAxis + n).normalized();
-        rotation = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * rotation;
+        worldAttitude = QQuaternion::fromAxisAndAngle(rotationAxis, angularSpeed) * worldAttitude;
         updateGL();
     }
 
