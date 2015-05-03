@@ -88,10 +88,7 @@ typedef struct tagPIDStruct {
  */
 /* Mechanical offset of the motors. */
 fix16_t g_motorOffset[3] = {0};
-
-#if !defined(USE_ONE_IMU)
-qf16 qSwing = {0x00010000, 0x00000000, 0x00000000, 0x00000000};
-#endif /* USE_ONE_IMU */
+qf16 qPitch = {0x00010000, 0x00000000, 0x00000000, 0x00000000};
 
 /**
  * Default closed loop with feed forward settings.
@@ -523,38 +520,23 @@ void actuatorsUpdate(void) {
   camAtti.z = fix16_circularize(camAtti.z);
 
 #if !defined(USE_ONE_IMU)
-  qf16 qTwistConjugate;
-
-  /* Apply swing-twist decomposition: */
-  fix16_t k = fix16_add(fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.a), fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
-  k = fix16_sqrt(k);
-  qTwistConjugate.a = fix16_div(g_IMU2.qIMU.a, k);
-  qTwistConjugate.b = 0;
-  qTwistConjugate.c = 0;
-  qTwistConjugate.d = -fix16_div(g_IMU2.qIMU.d, k);
-  qf16_mul(&qSwing, &g_IMU2.qIMU, &qTwistConjugate);
-
+  fix16_t tK;
   fix16_t tA;
   fix16_t tB;
-  fix16_t tC;
 
-  /* Swing Roll and Yaw errors: */
-  tA = fix16_sub(fix16_half, fix16_mul(qSwing.b, qSwing.b));
-  tA = fix16_sub(tA, fix16_mul(qSwing.d, qSwing.d));
-  tB = fix16_mul(tA, err.y);
-  tA = fix16_add(fix16_mul(qSwing.a, qSwing.b), fix16_mul(qSwing.c, qSwing.d));
-  tB = fix16_add(tB, fix16_mul(tA, err.z));
-  tB = fix16_mul(tB, fix16_two);
+  /* Apply quaternion decomposition on pitch axis. */
+  tK = fix16_add(fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.a), fix16_mul(g_IMU2.qIMU.b, g_IMU2.qIMU.b));
+  tK = fix16_sqrt(tK);
+  /* TODO: add code to prevent division by zero. */
+  qPitch.a = fix16_div(g_IMU2.qIMU.a, tK);
+  qPitch.b = fix16_div(g_IMU2.qIMU.b, tK);
 
-  tA = fix16_sub(fix16_half, fix16_mul(qSwing.b, qSwing.b));
-  tA = fix16_sub(tA, fix16_mul(qSwing.c, qSwing.c));
-  tC = fix16_mul(tA, err.z);
-  tA = fix16_sub(fix16_mul(qSwing.c, qSwing.d), fix16_mul(qSwing.a, qSwing.b));
-  tC = fix16_add(tC, fix16_mul(tA, err.y));
-  tC = fix16_mul(tC, fix16_two);
-
-  err.y = tB;
-  err.z = tC;
+  /* Rotate Roll and Yaw errors: */
+  tA = fix16_sub(fix16_mul(qPitch.a, qPitch.a), fix16_mul(qPitch.b, qPitch.b));
+  tB = fix16_mul(fix16_two, fix16_mul(qPitch.a, qPitch.b));
+  tK = fix16_add(fix16_mul(err.y, tA), fix16_mul(err.z, tB));
+  err.z = fix16_sub(fix16_mul(err.z, tA), fix16_mul(err.y, tB));
+  err.y = tK;
 
   /* Compute disturbance value. */
   v3d_sub(&db, &rpyIMU2Prev, &g_IMU2.rpyIMU);
