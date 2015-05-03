@@ -42,7 +42,7 @@ extern fix16_t g_motorOffset[3];
 extern PIDSettings g_pidSettings[3];
 extern InputModeStruct g_modeSettings[3];
 #if !defined(USE_ONE_IMU)
-extern qf16 qRotE;
+extern qf16 qSwing;
 #endif /* USE_ONE_IMU */
 
 #ifdef __cplusplus

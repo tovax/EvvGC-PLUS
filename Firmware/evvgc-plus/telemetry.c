@@ -308,8 +308,8 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
   case 'z':
-    memcpy((void *)pMsg->data, (void *)&qRotE, sizeof(qRotE));
-    pMsg->size = sizeof(qRotE) + TELEMETRY_MSG_SIZE;
+    memcpy((void *)pMsg->data, (void *)&qSwing, sizeof(qSwing));
+    pMsg->size = sizeof(qSwing) + TELEMETRY_MSG_SIZE;
     pMsg->crc  = telemetryGetCRC32Checksum(pMsg);
     break;
 #endif /* USE_ONE_IMU */

@@ -90,7 +90,7 @@ typedef struct tagPIDStruct {
 fix16_t g_motorOffset[3] = {0};
 
 #if !defined(USE_ONE_IMU)
-qf16 qRotE;
+qf16 qSwing = {0x00010000, 0x00000000, 0x00000000, 0x00000000};
 #endif /* USE_ONE_IMU */
 
 /**
@@ -173,10 +173,8 @@ static fix16_t fix16_circularize(fix16_t val) {
  */
 static fix16_t pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16_t db) {
   fix16_t poles2 = fix16_from_int(g_pwmOutput[ch_id].num_poles / 2);
-  /* Error is a distance for the motor to travel: */
-  fix16_t distance = fix16_circularize(err);
   /* Convert mechanical distance to electrical distance: */
-  distance = fix16_mul(distance, poles2);
+  fix16_t distance = fix16_mul(err, poles2);
   /* If there is a distance to travel then rotate the motor in small steps: */
   fix16_t step = fix16_mul(distance, PID[ch_id].I);
   step = constrain(step, MOTOR_STEP_LIMIT_MIN, MOTOR_STEP_LIMIT_MAX);
@@ -188,8 +186,6 @@ static fix16_t pidControllerApply(uint8_t ch_id, fix16_t err, fix16_t rot, fix16
   step = fix16_add(step, fix16_mul(acceleration, PID[ch_id].D));
   /* Account for rotation command value: */
   step = fix16_add(step, fix16_mul(rot, poles2));
-  /* Account for the disturbance value (only if the 2nd IMU is enabled): */
-  db = fix16_circularize(db);
   /* Convert mechanical disturbance to electrical disturbance: */
   db = fix16_mul(db, poles2);
   step = fix16_add(step, fix16_mul(db, PID[ch_id].F));
@@ -279,7 +275,8 @@ static void qf16_to_rpy(const qf16 *q, v3d *rpy) {
 
   //TODO: consider the cases where |R13| ~= 1, |roll| ~= pi/2
 }
-#if 0
+
+#if 0 //!defined(USE_ONE_IMU)
 /**
  * @brief Find quaternion from roll, pitch and yaw.
  * @note  The order of rotations is:
@@ -316,43 +313,44 @@ static void qf16_from_rpy(const v3d *rpy, qf16 *q) {
   tmp2 = fix16_mul(sphi, fix16_mul(stheta, cpsi));
   q->d = fix16_sub(tmp1, tmp2);
 }
-#endif /* 0 */
+#endif /* USE_ONE_IMU */
 
 #if !defined(USE_ONE_IMU)
 /**
  * @brief  Rotates vector v by rotation quaternion q (faster than qf16_rotate()).
- * @param  r - rotated vector.
+ * @param  dest - rotated vector.
  * @param  v - vector to be rotated.
  * @param  q - rotation quaternion.
  */
-static void v3d_rot(v3d *r, const v3d *v, const qf16 *q) {
+static void v3d_rot(v3d *dest, const v3d *v, const qf16 *q) {
   fix16_t tmp;
+  v3d tmpv;
 
   tmp = fix16_sub(fix16_half, fix16_mul(q->c, q->c));
   tmp = fix16_sub(tmp, fix16_mul(q->d, q->d));
-  r->x = fix16_mul(tmp, v->x);
+  tmpv.x = fix16_mul(tmp, v->x);
   tmp = fix16_sub(fix16_mul(q->b, q->c), fix16_mul(q->a, q->d));
-  r->x = fix16_add(r->x, fix16_mul(tmp, v->y));
+  tmpv.x = fix16_add(tmpv.x, fix16_mul(tmp, v->y));
   tmp = fix16_add(fix16_mul(q->b, q->d), fix16_mul(q->a, q->c));
-  r->x = fix16_add(r->x, fix16_mul(tmp, v->z));
+  tmpv.x = fix16_add(tmpv.x, fix16_mul(tmp, v->z));
 
   tmp = fix16_sub(fix16_half, fix16_mul(q->b, q->b));
   tmp = fix16_sub(tmp, fix16_mul(q->d, q->d));
-  r->y = fix16_mul(tmp, v->y);
+  tmpv.y = fix16_mul(tmp, v->y);
   tmp = fix16_sub(fix16_mul(q->c, q->d), fix16_mul(q->a, q->b));
-  r->y = fix16_add(r->y, fix16_mul(tmp, v->z));
+  tmpv.y = fix16_add(tmpv.y, fix16_mul(tmp, v->z));
   tmp = fix16_add(fix16_mul(q->b, q->c), fix16_mul(q->a, q->d));
-  r->y = fix16_add(r->y, fix16_mul(tmp, v->x));
+  tmpv.y = fix16_add(tmpv.y, fix16_mul(tmp, v->x));
 
   tmp = fix16_sub(fix16_half, fix16_mul(q->b, q->b));
   tmp = fix16_sub(tmp, fix16_mul(q->c, q->c));
-  r->z = fix16_mul(tmp, v->z);
+  tmpv.z = fix16_mul(tmp, v->z);
   tmp = fix16_sub(fix16_mul(q->b, q->d), fix16_mul(q->a, q->c));
-  r->z = fix16_add(r->z, fix16_mul(tmp, v->x));
+  tmpv.z = fix16_add(tmpv.z, fix16_mul(tmp, v->x));
   tmp = fix16_add(fix16_mul(q->c, q->d), fix16_mul(q->a, q->b));
-  r->z = fix16_add(r->z, fix16_mul(tmp, v->y));
+  tmpv.z = fix16_add(tmpv.z, fix16_mul(tmp, v->y));
 
-  v3d_mul_s(r, r, fix16_two);
+  v3d_mul_s(dest, &tmpv, fix16_two);
 }
 #endif /* USE_ONE_IMU */
 
@@ -515,52 +513,58 @@ void actuatorsUpdate(void) {
 
   /* Find error of the process. */
   v3d_sub(&err, &camAtti, &g_IMU1.rpyIMU);
+  err.x = fix16_circularize(err.x);
+  err.y = fix16_circularize(err.y);
+  err.z = fix16_circularize(err.z);
   /* Update attitude of the camera by amount of commanded rotation. */
   v3d_add(&camAtti, &camAtti, (v3d *)camRot);
-
   camAtti.x = fix16_circularize(camAtti.x);
   camAtti.y = fix16_circularize(camAtti.y);
   camAtti.z = fix16_circularize(camAtti.z);
 
 #if !defined(USE_ONE_IMU)
-  v3d diff;
-  /* Compute disturbance value. */
-  v3d_sub(&diff, &rpyIMU2Prev, &g_IMU2.rpyIMU);
-  /* Rotate disturbance. */
-  v3d_rot(&db, &diff, &g_IMU2.qIMU);
-  /* Store attitude value of the second IMU. */
-  memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
+  qf16 qTwistConjugate;
+
+  /* Apply swing-twist decomposition: */
+  fix16_t k = fix16_add(fix16_mul(g_IMU2.qIMU.a, g_IMU2.qIMU.a), fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
+  k = fix16_sqrt(k);
+  qTwistConjugate.a = fix16_div(g_IMU2.qIMU.a, k);
+  qTwistConjugate.b = 0;
+  qTwistConjugate.c = 0;
+  qTwistConjugate.d = -fix16_div(g_IMU2.qIMU.d, k);
+  qf16_mul(&qSwing, &g_IMU2.qIMU, &qTwistConjugate);
 
   fix16_t tA;
   fix16_t tB;
   fix16_t tC;
 
-  tA = fix16_sub(fix16_one, fix16_mul(g_IMU2.qIMU.d, g_IMU2.qIMU.d));
-  tB = fix16_sqrt(tA);
-  tC = g_IMU2.qIMU.d;
-
-  qRotE.a = fix16_add(fix16_mul(g_IMU2.qIMU.a, tB), fix16_mul(g_IMU2.qIMU.d, tC));
-  qRotE.b = fix16_sub(fix16_mul(g_IMU2.qIMU.b, tB), fix16_mul(g_IMU2.qIMU.c, tC));
-  qRotE.c = fix16_add(fix16_mul(g_IMU2.qIMU.c, tB), fix16_mul(g_IMU2.qIMU.b, tC));
-  qRotE.d = fix16_sub(fix16_mul(g_IMU2.qIMU.d, tB), fix16_mul(g_IMU2.qIMU.a, tC));
-
-  /* Rotate Roll and Yaw errors to the reference frame of the second IMU with Yaw component removed. */
-  tA = fix16_sub(fix16_half, fix16_mul(qRotE.b, qRotE.b));
-  tA = fix16_sub(tA, fix16_mul(qRotE.d, qRotE.d));
+  /* Swing Roll and Yaw errors: */
+  tA = fix16_sub(fix16_half, fix16_mul(qSwing.b, qSwing.b));
+  tA = fix16_sub(tA, fix16_mul(qSwing.d, qSwing.d));
   tB = fix16_mul(tA, err.y);
-  tA = fix16_add(fix16_mul(qRotE.a, qRotE.b), fix16_mul(qRotE.c, qRotE.d));
+  tA = fix16_add(fix16_mul(qSwing.a, qSwing.b), fix16_mul(qSwing.c, qSwing.d));
   tB = fix16_add(tB, fix16_mul(tA, err.z));
   tB = fix16_mul(tB, fix16_two);
 
-  tA = fix16_sub(fix16_half, fix16_mul(qRotE.b, qRotE.b));
-  tA = fix16_sub(tA, fix16_mul(qRotE.c, qRotE.c));
+  tA = fix16_sub(fix16_half, fix16_mul(qSwing.b, qSwing.b));
+  tA = fix16_sub(tA, fix16_mul(qSwing.c, qSwing.c));
   tC = fix16_mul(tA, err.z);
-  tA = fix16_sub(fix16_mul(qRotE.c, qRotE.d), fix16_mul(qRotE.a, qRotE.b));
+  tA = fix16_sub(fix16_mul(qSwing.c, qSwing.d), fix16_mul(qSwing.a, qSwing.b));
   tC = fix16_add(tC, fix16_mul(tA, err.y));
   tC = fix16_mul(tC, fix16_two);
 
   err.y = tB;
   err.z = tC;
+
+  /* Compute disturbance value. */
+  v3d_sub(&db, &rpyIMU2Prev, &g_IMU2.rpyIMU);
+  db.x = fix16_circularize(db.x);
+  db.y = fix16_circularize(db.y);
+  db.z = fix16_circularize(db.z);
+  /* Rotate disturbance. */
+  v3d_rot(&db, &db, &g_IMU2.qIMU);
+  /* Store attitude value of the second IMU. */
+  memcpy((void *)&rpyIMU2Prev, (void *)&g_IMU2.rpyIMU, sizeof(rpyIMU2Prev));
 #else
   memset((void *)&db, 0, sizeof(db));
 #endif /* USE_ONE_IMU */
