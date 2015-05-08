@@ -14,8 +14,8 @@
     limitations under the License.
 */
 
-#ifndef MPU6050_H_
-#define MPU6050_H_
+#ifndef _MPU6050_H_
+#define _MPU6050_H_
 
 #include "hal.h"
 
@@ -120,4 +120,4 @@ extern "C" {
 }
 #endif
 
-#endif /* MPU6050_H_ */
+#endif /* _MPU6050_H_ */

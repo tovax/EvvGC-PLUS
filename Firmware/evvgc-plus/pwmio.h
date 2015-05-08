@@ -14,8 +14,8 @@
     limitations under the License.
 */
 
-#ifndef PWMIO_H_
-#define PWMIO_H_
+#ifndef _PWMIO_H_
+#define _PWMIO_H_
 
 #include "fix16.h"
 
@@ -101,4 +101,4 @@ extern "C" {
 }
 #endif
 
-#endif /* PWMIO_H_ */
+#endif /* _PWMIO_H_ */

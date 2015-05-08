@@ -14,8 +14,8 @@
     limitations under the License.
 */
 
-#ifndef GLOBALS_H_
-#define GLOBALS_H_
+#ifndef _GLOBALS_H_
+#define _GLOBALS_H_
 
 /**
  * Global variables
@@ -29,4 +29,4 @@ extern "C" {
 }
 #endif
 
-#endif /* GLOBALS_H_ */
+#endif /* _GLOBALS_H_ */

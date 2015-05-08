@@ -14,8 +14,8 @@
     limitations under the License.
 */
 
-#ifndef TELEMETRY_H_
-#define TELEMETRY_H_
+#ifndef _TELEMETRY_H_
+#define _TELEMETRY_H_
 
 /* Console input/output channel. */
 extern BaseChannel *g_chnp;
@@ -28,4 +28,4 @@ void telemetryReadSerialData(void);
 }
 #endif
 
-#endif /* TELEMETRY_H_ */
+#endif /* _TELEMETRY_H_ */

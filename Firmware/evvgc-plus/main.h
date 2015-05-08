@@ -14,8 +14,8 @@
     limitations under the License.
 */
 
-#ifndef MAIN_H_
-#define MAIN_H_
+#ifndef _MAIN_H_
+#define _MAIN_H_
 
 #define MPU6050_LOW_DETECTED    0x00000001
 #define MPU6050_HIGH_DETECTED   0x00000002
@@ -50,4 +50,4 @@ extern "C" {
 }
 #endif
 
-#endif /* MAIN_H_ */
+#endif /* _MAIN_H_ */
