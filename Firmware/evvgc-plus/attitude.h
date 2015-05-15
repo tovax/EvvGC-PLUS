@@ -17,16 +17,10 @@
 #ifndef _ATTITUDE_H_
 #define _ATTITUDE_H_
 
-#include "mpu6050.h"
-
-#define INPUT_MODE_ANGLE      0x00
-#define INPUT_MODE_SPEED      0x01
-#define INPUT_MODE_FOLLOW     0x02
-
 typedef struct tagPIDSettings {
-  uint8_t P;  /* Coefficient for P term calculation. */
-  uint8_t I;  /* Coefficient for I term calculation. */
-  uint8_t D;  /* Coefficient for D term calculation. */
+  uint8_t P;  /* Coefficient for P term calculation.       */
+  uint8_t I;  /* Coefficient for I term calculation.       */
+  uint8_t D;  /* Coefficient for D term calculation.       */
   uint8_t F;  /* Coefficient for feed forward calculation. */
 } __attribute__((packed)) PIDSettings, *PPIDSettings;
 
@@ -38,6 +32,9 @@ typedef struct tagInputModeStruct {
   uint8_t mode_id;
 } __attribute__((packed)) InputModeStruct, *PInputModeStruct;
 
+/**
+ * Global variables
+ */
 extern fix16_t g_motorOffset[3];
 extern PIDSettings g_pidSettings[3];
 extern InputModeStruct g_modeSettings[3];

@@ -14,10 +14,7 @@
     limitations under the License.
 */
 
-#include "ch.h"
-#include "hal.h"
-
-#include "main.h"
+#include "evvgcp.h"
 #include "usbcfg.h"
 #include "mpu6050.h"
 #include "attitude.h"
@@ -25,12 +22,29 @@
 #include "telemetry.h"
 #include "eeprom.h"
 
+/* MPU6050 sensor on low address detected.       */
+#define MPU6050_LOW_DETECTED    0x00000001
+/* MPU6050 sensor on high address detected.      */
+#define MPU6050_HIGH_DETECTED   0x00000002
+/* External EEPROM chip detected.                */
+#define EEPROM_24C02_DETECTED   0x00000004
+
 /* Telemetry operation time out in milliseconds. */
 #define TELEMETRY_SLEEP_MS      20
 
+/**
+ * Global variables
+ */
+/* Status of the board.                */
 uint32_t g_boardStatus = 0;
+/* Main thread termination flag.       */
 bool_t g_runMain = TRUE;
+/* I2C error info structure.           */
+I2CErrorStruct g_i2cErrorInfo = {0, 0, 0};
 
+/**
+ * Local variables
+ */
 /* I2C2 configuration for I2C driver 2 */
 static const I2CConfig i2cfg_d2 = {
   OPMODE_I2C,

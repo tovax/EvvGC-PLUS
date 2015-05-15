@@ -14,12 +14,15 @@
     limitations under the License.
 */
 
-#ifndef _MAIN_H_
-#define _MAIN_H_
+#ifndef _EVVGCP_H_
+#define _EVVGCP_H_
 
-#define MPU6050_LOW_DETECTED    0x00000001
-#define MPU6050_HIGH_DETECTED   0x00000002
-#define EEPROM_24C02_DETECTED   0x00000004
+#include "ch.h"
+#include "hal.h"
+
+#include "fixvector3d.h"
+#include "fixquat.h"
+
 #define IMU1_CALIBRATE_ACC      0x00000008
 #define IMU1_CALIBRATE_GYRO     0x00000010
 #define IMU2_CALIBRATE_ACC      0x00000020
@@ -32,6 +35,13 @@
 
 #define SYMVAL(sym) (uint32_t)(((uint8_t *)&(sym)) - ((uint8_t *)0))
 
+/* I2C error info structure. */
+typedef struct tagI2CErrorStruct {
+  i2cflags_t last_i2c_error;
+  uint32_t i2c_error_counter;
+  uint32_t i2c_timeout_counter;
+} __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
+
 /**
  * Global variables
  */
@@ -41,6 +51,8 @@ extern uint32_t __ram_end__;
 extern uint32_t g_boardStatus;
 /* Main thread termination flag. */
 extern bool_t g_runMain;
+/* I2C error info structure. */
+extern I2CErrorStruct g_i2cErrorInfo;
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,4 +62,4 @@ extern "C" {
 }
 #endif
 
-#endif /* _MAIN_H_ */
+#endif /* _EVVGCP_H_ */

@@ -14,19 +14,16 @@
     limitations under the License.
 */
 
-#include "ch.h"
-#include "hal.h"
+#include "evvgcp.h"
+#include "mpu6050.h"
+#include "attitude.h"
+#include "pwmio.h"
+#include "eeprom.h"
+#include "misc.h"
+#include "telemetry.h"
 
 /* C libraries: */
 #include <string.h>
-
-#include "telemetry.h"
-#include "attitude.h"
-#include "pwmio.h"
-#include "mpu6050.h"
-#include "eeprom.h"
-#include "misc.h"
-#include "main.h"
 
 /* Predefined telemetry responses. */
 #define TELEMETRY_RESP_OK         "_OK_"
@@ -58,10 +55,6 @@ typedef struct tagMessage {
 /**
  * Global variables
  */
-/* Board status variable. */
-extern uint32_t g_boardStatus;
-/* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
 /* Console input/output handle. */
 BaseChannel *g_chnp = NULL;
 

@@ -17,11 +17,6 @@
 #ifndef _MPU6050_H_
 #define _MPU6050_H_
 
-#include "hal.h"
-
-#include "fixvector3d.h"
-#include "fixquat.h"
-
 #define MPU6050_I2C_ADDR_A0_LOW     0x68
 #define MPU6050_I2C_ADDR_A0_HIGH    0x69
 
@@ -52,7 +47,7 @@
 #define MPU6050_GYRO_SCALE          F16(1.0f /  32.8f) // 1000 deg/s
 //#define MPU6050_GYRO_SCALE          F16(1.0f /  16.4f) // 2000 deg/s
 
-#define GRAV                        (9.81)
+#define GRAV                        9.81f
 
 //#define MPU6050_ACCEL_SCALE         F16(GRAV / 16384.0f) //  2G
 //#define MPU6050_ACCEL_SCALE         F16(GRAV /  8192.0f) //  4G
@@ -89,12 +84,9 @@ typedef struct tagIMUStruct {
   uint8_t addr;         /* I2C address of the chip.        */
 } __attribute__((packed)) IMUStruct, *PIMUStruct;
 
-typedef struct tagI2CErrorStruct {
-  i2cflags_t last_i2c_error;
-  uint32_t i2c_error_counter;
-  uint32_t i2c_timeout_counter;
-} __attribute__((packed)) I2CErrorStruct, *PI2CErrorStruct;
-
+/**
+ * Glbal variables
+ */
 /* IMU data structure. */
 extern IMUStruct g_IMU1;
 #if !defined(USE_ONE_IMU)
@@ -102,8 +94,6 @@ extern IMUStruct g_IMU2;
 #endif /* USE_ONE_IMU */
 /* Packed sensor settings. */
 extern uint8_t g_sensorSettings[3];
-/* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
 
 #ifdef __cplusplus
 extern "C" {

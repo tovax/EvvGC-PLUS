@@ -31,12 +31,14 @@
     Pitch (X) then Roll (Y) and then Yaw (Z).
 */
 
-/* C libraries: */
-#include <string.h>
-
-#include "attitude.h"
+#include "evvgcp.h"
+#include "mpu6050.h"
 #include "misc.h"
 #include "pwmio.h"
+#include "attitude.h"
+
+/* C libraries: */
+#include <string.h>
 
 /**
  * Single precision floating point constants.
@@ -69,8 +71,12 @@
 #define PID_COEF_SCALE_D        F16( 1.0f )
 #define PID_COEF_SCALE_F        F16( 0.01f )
 
-static const fix16_t fix16_half = 0x00008000; /*!< fix16_t value of 0.5. */
-static const fix16_t fix16_two  = 0x00020000; /*!< fix16_t value of 2. */
+/**
+ * Input modes.
+ */
+#define INPUT_MODE_ANGLE        0x00
+#define INPUT_MODE_SPEED        0x01
+#define INPUT_MODE_FOLLOW       0x02
 
 /* PID controller structure. */
 typedef struct tagPIDStruct {

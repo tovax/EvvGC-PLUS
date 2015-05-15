@@ -15,13 +15,14 @@
 */
 
 #include "ch.h"
+#include "hal.h"
 
-#include "pwmio.h"
+#include "fix16.h"
 #include "misc.h"
+#include "pwmio.h"
 
+/* C libraries: */
 #include <string.h>
-
-static const fix16_t fix16_three = 0x00030000; /*!< fix16_t value of 3 */
 
 /**
  * DeadTime range (us) = (0..127) * 1 / 72;

@@ -21,13 +21,11 @@
  * and then begin reading process.
  */
 
-#include "ch.h"
+#include "evvgcp.h"
+#include "mpu6050.h"
 
 /* C libraries: */
 #include <string.h>
-
-#include "mpu6050.h"
-#include "main.h"
 
 #define MPU6050_RX_BUF_SIZE       0x0E
 #define MPU6050_TX_BUF_SIZE       0x05
@@ -61,9 +59,6 @@ IMUStruct g_IMU1;
 #if !defined(USE_ONE_IMU)
 IMUStruct g_IMU2;
 #endif /* USE_ONE_IMU */
-
-/* I2C error info structure. */
-I2CErrorStruct g_i2cErrorInfo = {0, 0, 0};
 
 /**
  * Local variables
