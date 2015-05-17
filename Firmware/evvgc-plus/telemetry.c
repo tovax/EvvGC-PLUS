@@ -17,15 +17,15 @@
 #include "ch.h"
 #include "hal.h"
 
-/* C libraries: */
-#include <string.h>
-
-#include "telemetry.h"
-#include "attitude.h"
-#include "pwmio.h"
 #include "mpu6050.h"
+#include "pwmio.h"
 #include "eeprom.h"
 #include "misc.h"
+#include "attitude.h"
+#include "telemetry.h"
+
+/* C libraries: */
+#include <string.h>
 
 /* Predefined telemetry responses. */
 #define TELEMETRY_RESP_OK         "_OK_"
@@ -59,8 +59,10 @@ typedef struct tagMessage {
  */
 /* Board status variable. */
 extern uint32_t g_boardStatus;
+/* Main thread termination flag. */
+extern bool_t g_runMain;
 /* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
+extern I2CErrorInfoStruct g_i2cErrorInfo;
 /* Console input/output handle. */
 BaseChannel *g_chnp;
 
@@ -172,6 +174,10 @@ static void telemetryProcessCommand(const PMessage pMsg) {
     } else {
       telemetryNegativeResponse(pMsg);
     }
+    break;
+  case 'X': /* Reboot the board. */
+    telemetryPositiveResponse(pMsg);
+    g_runMain = FALSE;
     break;
   case 'a': /* Outputs accelerometer data; */
     memcpy((void *)pMsg->data, (void *)g_IMU1.accelData, sizeof(g_IMU1.accelData));

@@ -14,14 +14,8 @@
     limitations under the License.
 */
 
-#ifndef ATTITUDE_H_
-#define ATTITUDE_H_
-
-#include "mpu6050.h"
-
-#define INPUT_MODE_ANGLE      0x00
-#define INPUT_MODE_SPEED      0x01
-#define INPUT_MODE_FOLLOW     0x02
+#ifndef _ATTITUDE_H_
+#define _ATTITUDE_H_
 
 typedef struct tagPIDSettings {
   uint8_t P;
@@ -37,6 +31,9 @@ typedef struct tagInputModeStruct {
   uint8_t mode_id;
 } __attribute__((packed)) InputModeStruct, *PInputModeStruct;
 
+/**
+ * Global variables
+ */
 extern float g_motorOffset[3];
 extern PIDSettings g_pidSettings[3];
 extern InputModeStruct g_modeSettings[3];
@@ -54,4 +51,4 @@ extern "C" {
 }
 #endif
 
-#endif /* ATTITUDE_H_ */
+#endif /* _ATTITUDE_H_ */

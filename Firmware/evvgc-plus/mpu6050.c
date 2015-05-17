@@ -21,24 +21,76 @@
  * and then begin reading process.
  */
 
-/* C libraries: */
-#include <string.h>
-
 #include "ch.h"
 #include "hal.h"
 
-#include "mpu6050.h"
 #include "misc.h"
+#include "mpu6050.h"
 
-#define MPU6050_RX_BUF_SIZE   0x0E
-#define MPU6050_TX_BUF_SIZE   0x05
+/* C libraries: */
+#include <string.h>
 
-/* I2C read transaction time-out in milliseconds. */
-#define MPU6050_READ_TIMEOUT_MS   0x01
+/* MPU6050 available addresses. */
+#define MPU6050_I2C_ADDR_A0_LOW     0x68
+#define MPU6050_I2C_ADDR_A0_HIGH    0x69
+
+/* MPU6050 useful registers. */
+#define MPU6050_SMPLRT_DIV          0x19
+#define MPU6050_CONFIG              0x1A
+#define MPU6050_GYRO_CONFIG         0x1B
+#define MPU6050_ACCEL_CONFIG        0x1C
+#define MPU6050_ACCEL_XOUT_H        0x3B
+#define MPU6050_ACCEL_XOUT_L        0x3C
+#define MPU6050_ACCEL_YOUT_H        0x3D
+#define MPU6050_ACCEL_YOUT_L        0x3E
+#define MPU6050_ACCEL_ZOUT_H        0x3F
+#define MPU6050_ACCEL_ZOUT_L        0x40
+#define MPU6050_TEMP_OUT_H          0x41
+#define MPU6050_TEMP_OUT_L          0x42
+#define MPU6050_GYRO_XOUT_H         0x43
+#define MPU6050_GYRO_XOUT_L         0x44
+#define MPU6050_GYRO_YOUT_H         0x45
+#define MPU6050_GYRO_YOUT_L         0x46
+#define MPU6050_GYRO_ZOUT_H         0x47
+#define MPU6050_GYRO_ZOUT_L         0x48
+#define MPU6050_PWR_MGMT_1          0x6B
+
+/* MPU6050 gyroscopic sensor scales. */
+//#define MPU6050_GYRO_SCALE          (1.0f / 131.0f) //  250 deg/s
+//#define MPU6050_GYRO_SCALE          (1.0f /  65.5f) //  500 deg/s
+#define MPU6050_GYRO_SCALE          (1.0f /  32.8f) // 1000 deg/s
+//#define MPU6050_GYRO_SCALE          (1.0f /  16.4f) // 2000 deg/s
+
+/* Earth gravity. */
+#define GRAV                        9.81f
+
+/* MPU6050 accelerometer scales. */
+//#define MPU6050_ACCEL_SCALE         (GRAV / 16384.0f) //  2G
+//#define MPU6050_ACCEL_SCALE         (GRAV /  8192.0f) //  4G
+#define MPU6050_ACCEL_SCALE         (GRAV /  4096.0f) //  8G
+//#define MPU6050_ACCEL_SCALE         (GRAV /  2048.0f) // 16G
+
+#define IMU_AXIS_DIR_POS            0x08
+#define IMU_AXIS_ID_MASK            0x07
+
+#define IMU1_AXIS_DIR_POS           0x08
+#define IMU1_AXIS_ID_MASK           0x07
+#define IMU1_CONF_MASK              0x0F
+
+#define IMU2_AXIS_DIR_POS           0x80
+#define IMU2_AXIS_ID_MASK           0x70
+#define IMU2_CONF_MASK              0xF0
+
+/* MPU6050 input/output buffer size. */
+#define MPU6050_RX_BUF_SIZE         0x0E
+#define MPU6050_TX_BUF_SIZE         0x05
+
+/* I2C read transaction time-out in milliseconds.  */
+#define MPU6050_READ_TIMEOUT_MS     0x01
 /* I2C write transaction time-out in milliseconds. */
-#define MPU6050_WRITE_TIMEOUT_MS  0x01
-
-#define CALIBRATION_COUNTER_MAX   5000
+#define MPU6050_WRITE_TIMEOUT_MS    0x01
+/* Upper limit of calibration counter.             */
+#define CALIBRATION_COUNTER_MAX     5000
 
 /**
  * Global variables
@@ -57,12 +109,11 @@ uint8_t g_sensorSettings[3] = {
   0x22,              /* Yaw   (Z) */
 };
 
-/* IMU data structure. */
+/* IMU1 data structure. */
 IMUStruct g_IMU1;
-IMUStruct g_IMU2;
 
 /* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
+extern I2CErrorInfoStruct g_i2cErrorInfo;
 extern uint32_t g_boardStatus;
 
 /**
@@ -168,6 +219,7 @@ uint8_t imuCalibrate(PIMUStruct pIMU, uint8_t fCalibrateAcc) {
  */
 uint8_t mpu6050Init(uint8_t addr) {
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   /* Reset all MPU6050 registers to their default values */
   mpu6050TXData[0] = MPU6050_PWR_MGMT_1;  // Start register address;
@@ -180,9 +232,12 @@ uint8_t mpu6050Init(uint8_t addr) {
 
   if (status != RDY_OK) {
     i2cReleaseBus(&I2CD2);
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -199,9 +254,12 @@ uint8_t mpu6050Init(uint8_t addr) {
 
   if (status != RDY_OK) {
     i2cReleaseBus(&I2CD2);
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -222,9 +280,12 @@ uint8_t mpu6050Init(uint8_t addr) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -240,6 +301,7 @@ uint8_t mpu6050Init(uint8_t addr) {
  */
 uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
   uint8_t id;
 
   /* Set the start register address for bulk data transfer. */
@@ -250,9 +312,12 @@ uint8_t mpu6050GetNewData(PIMUStruct pIMU) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -295,7 +360,6 @@ void sensorSettingsUpdate(const uint8_t *pNewSettings) {
   memcpy((void *)g_sensorSettings, (void *)pNewSettings, sizeof(g_sensorSettings));
   for (i = 0; i < 3; i++) {
     g_IMU1.axes_conf[i] = g_sensorSettings[i] & IMU1_CONF_MASK;
-    g_IMU2.axes_conf[i] = g_sensorSettings[i] >> 4;
   }
 }
 

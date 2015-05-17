@@ -23,15 +23,21 @@
 #include "ch.h"
 #include "hal.h"
 
+#include "mpu6050.h"
+#include "pwmio.h"
+#include "misc.h"
+#include "attitude.h"
+#include "eeprom.h"
+
 /* C libraries: */
 #include <string.h>
 
-#include "eeprom.h"
-#include "attitude.h"
-#include "pwmio.h"
-#include "mpu6050.h"
-#include "misc.h"
-
+/* Address of the 24C02 EEPROM chip: 1 0 1 0 1 1 1; */
+#define EEPROM_24C02_ADDR       0x57
+/* Size of the chip is 256 bytes (2048 bits or 2kbit); */
+#define EEPROM_24C02_SIZE       0x0100
+/* 8 Bytes per page; */
+#define EEPROM_24C02_PAGE_SIZE  0x08
 /* I2C read transaction time-out in milliseconds. */
 #define EEPROM_READ_TIMEOUT_MS  0x05
 /* I2C write transaction time-out in milliseconds. */
@@ -39,7 +45,7 @@
 /* The beginning of the EEPROM. */
 #define EEPROM_START_ADDR       0x00
 
-typedef struct tagEEPROMStruct {
+typedef struct tagEEPROMDataStruct {
   PIDSettings pidSettings[3];       /*  9 bytes */
   PWMOutputStruct pwmOutput[3];     /* 12 bytes */
   MixedInputStruct mixedInput[3];   /* 21 byte  */
@@ -50,13 +56,13 @@ typedef struct tagEEPROMStruct {
   uint32_t crc32;                   /*  4 bytes */
 /* TOTAL:                              97 bytes */
 /* Bytes left:                        159 bytes */
-} __attribute__((packed)) EEPROMStruct, *PEEPROMStruct;
+} __attribute__((packed)) EEPROMDataStruct, *PEEPROMDataStruct;
 
 /**
  * Global variables
  */
 /* I2C error info structure. */
-extern I2CErrorStruct g_i2cErrorInfo;
+extern I2CErrorInfoStruct g_i2cErrorInfo;
 
 /**
  * Local variables
@@ -64,9 +70,8 @@ extern I2CErrorStruct g_i2cErrorInfo;
 static size_t dataSizeLeft = 0;
 static uint8_t newAddr;
 static uint8_t *pDataAddr;
-static uint8_t fSkipContinue = 0;
 
-static EEPROMStruct eepromData;
+static EEPROMDataStruct eepromData;
 static uint8_t eepromTXBuf[EEPROM_24C02_PAGE_SIZE + 1];
 
 /**
@@ -83,6 +88,7 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
   uint8_t addrOffset;
   size_t numBytes;
   msg_t status = RDY_OK;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   eepromTXBuf[0] = addr;
   addrOffset = addr % EEPROM_24C02_PAGE_SIZE;
@@ -98,9 +104,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
       NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
     i2cReleaseBus(&I2CD2);
     if (status != RDY_OK) {
-      g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-      if (g_i2cErrorInfo.last_i2c_error) {
+      i2c_error = i2cGetErrors(&I2CD2);
+      if (i2c_error != I2CD_NO_ERROR) {
+        g_i2cErrorInfo.last_i2c_error = i2c_error;
         g_i2cErrorInfo.i2c_error_counter++;
+      } else {
+        g_i2cErrorInfo.i2c_timeout_counter++;
       }
       return 0;
     }
@@ -116,9 +125,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
         NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
       i2cReleaseBus(&I2CD2);
       if (status != RDY_OK) {
-        g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-        if (g_i2cErrorInfo.last_i2c_error) {
+        i2c_error = i2cGetErrors(&I2CD2);
+        if (i2c_error != I2CD_NO_ERROR) {
+          g_i2cErrorInfo.last_i2c_error = i2c_error;
           g_i2cErrorInfo.i2c_error_counter++;
+        } else {
+          g_i2cErrorInfo.i2c_timeout_counter++;
         }
         return 0;
       }
@@ -133,9 +145,12 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
         NULL, 0, MS2ST(EEPROM_WRITE_TIMEOUT_MS));
       i2cReleaseBus(&I2CD2);
       if (status != RDY_OK) {
-        g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-        if (g_i2cErrorInfo.last_i2c_error) {
+        i2c_error = i2cGetErrors(&I2CD2);
+        if (i2c_error != I2CD_NO_ERROR) {
+          g_i2cErrorInfo.last_i2c_error = i2c_error;
           g_i2cErrorInfo.i2c_error_counter++;
+        } else {
+          g_i2cErrorInfo.i2c_timeout_counter++;
         }
         return 0;
       }
@@ -153,6 +168,7 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
 uint8_t eepromLoadSettings(void) {
   msg_t status = RDY_OK;
   uint8_t addr = EEPROM_START_ADDR;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   i2cAcquireBus(&I2CD2);
   status = i2cMasterTransmitTimeout(&I2CD2, EEPROM_24C02_ADDR, &addr, 1,
@@ -160,9 +176,12 @@ uint8_t eepromLoadSettings(void) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -197,7 +216,6 @@ uint8_t eepromSaveSettings(void) {
   memcpy((void *)eepromData.accelBias, (void *)g_IMU1.accelBias, sizeof(g_IMU1.accelBias));
   memcpy((void *)eepromData.gyroBias, (void *)g_IMU1.gyroBias, sizeof(g_IMU1.gyroBias));
   eepromData.crc32 = crcCRC32((uint32_t *)&eepromData, sizeof(eepromData) / sizeof(uint32_t) - 1);
-  fSkipContinue = 1;
   return eepromWriteData(EEPROM_START_ADDR, (uint8_t *)&eepromData, sizeof(eepromData));
 }
 
@@ -207,10 +225,6 @@ uint8_t eepromSaveSettings(void) {
  *         0 - if write operation fails.
  */
 uint8_t eepromContinueSaving(void) {
-  if (fSkipContinue) {
-    fSkipContinue = 0;
-    return 1;
-  }
   return eepromWriteData(newAddr, pDataAddr, dataSizeLeft);
 }
 

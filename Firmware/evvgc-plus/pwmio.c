@@ -19,8 +19,25 @@
 
 #include "pwmio.h"
 
+/* C libraries: */
 #include <math.h>
 #include <string.h>
+
+/**
+ * Dead-time IDs.
+ */
+#define PWM_OUT_DT750NS         0x00
+#define PWM_OUT_DT1000NS        0x10
+#define PWM_OUT_DT2000NS        0x20
+#define PWM_OUT_DT3000NS        0x30
+#define PWM_OUT_DT4000NS        0x40
+#define PWM_OUT_DT5000NS        0x50
+
+/**
+ * Flags.
+ */
+#define PWM_OUT_REV_FLAG        0x01
+#define PWM_OUT_THI_FLAG        0x02
 
 /**
  * DeadTime range (us) = (0..127) * 1 / 72;
@@ -108,6 +125,9 @@ static void icuwidthcb(ICUDriver *icup, icuchannel_t channel);
 static void icuperiodcb(ICUDriver *icup, icuchannel_t channel);
 
 /**
+ * Global varialbles
+ */
+/**
  * Default settings for PWM outputs.
  */
 PWMOutputStruct g_pwmOutput[3] = {
@@ -151,6 +171,9 @@ MixedInputStruct g_mixedInput[3] = {
  */
 int16_t g_inputValues[5] = {0};
 
+/**
+ * Local variables
+ */
 /**
  * PWM configuration structure for TIM1 and TIM8 output.
  */
@@ -233,7 +256,7 @@ static const ADCConversionGroup adcgrpcfg = {
   NULL,                 /* Error callback function.         */
   /* STM32F1xx dependent part: */
   0,                                      /* CR1.   */
-  0,                                      /* CR2.   */                        
+  0,                                      /* CR2.   */
   ADC_SMPR1_SMP_AN12(ADC_SAMPLE_239P5) |
   ADC_SMPR1_SMP_AN13(ADC_SAMPLE_239P5),   /* SMPR1. */
   0,                                      /* SMPR2. */
@@ -546,6 +569,18 @@ void pwmOutputStart(void) {
 }
 
 /**
+ * @brief  Stops the PWM output.
+ * @return none.
+ */
+void pwmOutputStop(void) {
+  pwmOutputDisableAll();
+  pwmStop(&PWMD1);
+  pwmStop(&PWMD8);
+  pwmStop(&PWMD4);
+  pwmStop(&PWMD5);
+}
+
+/**
  * @brief  Updates specified PWM output channel driver state
  *         according to the given command.
  * @param  channel_id - PWM output channel ID.
@@ -620,6 +655,16 @@ void mixedInputStart(void) {
   adcStart(&ADCD1, NULL);
   /* Starts an ADC continuous conversion. */
   adcStartConversion(&ADCD1, &adcgrpcfg, adcBuf, ADC_GRP_BUF_DEPTH);
+}
+
+/**
+ * @brief  Stops the ADC and ICU input drivers.
+ * @return none.
+ */
+void mixedInputStop(void) {
+  icuStop(&ICUD2);
+  icuStop(&ICUD3);
+  adcStop(&ADCD1);
 }
 
 /**

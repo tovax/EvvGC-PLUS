@@ -42,7 +42,8 @@
  * IO pins assignments.
  */
 #define GPIOA_USB_DP            12
-#define GPIOB_LED_RED           12
+#define GPIOB_LED_A             12 // Red LED on v1.2, blue LED on v1.3.
+#define GPIOA_LED_B             3  // Red LED on v1.3 only.
 
 
 /*
