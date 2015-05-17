@@ -11,7 +11,7 @@
 * Communication with **two sensors** is enabled.
 * PID controller is based on motor speed.
 * Feed forward is used to improve disturbance rejection.
-* EvvGC-PLUS configurator is written using [Qt 5.4.1](http://qt-io.org "Qt Homepage") technology for cross-platform development.
+* EvvGC-PLUS configurator is written using [Qt 5.4.1](http://www.qt.io "Qt Homepage") technology for cross-platform development.
 * [QCustomPlot](http://www.qcustomplot.com "QCustomPlot Homepage") is used for easy plotting and data visualization.
 * Dedicated thread is used for serial communications.
 
