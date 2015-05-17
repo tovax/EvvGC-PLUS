@@ -27,14 +27,67 @@
 /* C libraries: */
 #include <string.h>
 
+/* MPU6050 available addresses. */
+#define MPU6050_I2C_ADDR_A0_LOW   0x68
+#define MPU6050_I2C_ADDR_A0_HIGH  0x69
+
+/* MPU6050 useful registers */
+#define MPU6050_SMPLRT_DIV        0x19
+#define MPU6050_CONFIG            0x1A
+#define MPU6050_GYRO_CONFIG       0x1B
+#define MPU6050_ACCEL_CONFIG      0x1C
+#define MPU6050_ACCEL_XOUT_H      0x3B
+#define MPU6050_ACCEL_XOUT_L      0x3C
+#define MPU6050_ACCEL_YOUT_H      0x3D
+#define MPU6050_ACCEL_YOUT_L      0x3E
+#define MPU6050_ACCEL_ZOUT_H      0x3F
+#define MPU6050_ACCEL_ZOUT_L      0x40
+#define MPU6050_TEMP_OUT_H        0x41
+#define MPU6050_TEMP_OUT_L        0x42
+#define MPU6050_GYRO_XOUT_H       0x43
+#define MPU6050_GYRO_XOUT_L       0x44
+#define MPU6050_GYRO_YOUT_H       0x45
+#define MPU6050_GYRO_YOUT_L       0x46
+#define MPU6050_GYRO_ZOUT_H       0x47
+#define MPU6050_GYRO_ZOUT_L       0x48
+#define MPU6050_PWR_MGMT_1        0x6B
+
+/* MPU6050 gyroscopic sensor scales in fix16 format. */
+//#define MPU6050_GYRO_SCALE        F16(1.0f / 131.0f) //  250 deg/s
+//#define MPU6050_GYRO_SCALE        F16(1.0f /  65.5f) //  500 deg/s
+#define MPU6050_GYRO_SCALE        F16(1.0f /  32.8f) // 1000 deg/s
+//#define MPU6050_GYRO_SCALE        F16(1.0f /  16.4f) // 2000 deg/s
+
+/* MPU6050 accelerometer scales in fix16 format. */
+//#define MPU6050_ACCEL_SCALE       F16(GRAV / 16384.0f) //  2G
+//#define MPU6050_ACCEL_SCALE       F16(GRAV /  8192.0f) //  4G
+#define MPU6050_ACCEL_SCALE       F16(GRAV /  4096.0f) //  8G
+//#define MPU6050_ACCEL_SCALE       F16(GRAV /  2048.0f) // 16G
+
+#define IMU_AXIS_ID_X             0x00
+#define IMU_AXIS_ID_Y             0x01
+#define IMU_AXIS_ID_Z             0x02
+
+#define IMU_AXIS_DIR_POS          0x08
+#define IMU_AXIS_ID_MASK          0x07
+
+#define IMU1_AXIS_DIR_POS         0x08
+#define IMU1_AXIS_ID_MASK         0x07
+#define IMU1_CONF_MASK            0x0F
+
+#define IMU2_AXIS_DIR_POS         0x80
+#define IMU2_AXIS_ID_MASK         0x70
+#define IMU2_CONF_MASK            0xF0
+
+/* MPU6050 IO buffer size in bytes. */
 #define MPU6050_RX_BUF_SIZE       0x0E
 #define MPU6050_TX_BUF_SIZE       0x05
 
-/* I2C read transaction time-out in milliseconds. */
+/* I2C read transaction time-out in milliseconds.  */
 #define MPU6050_READ_TIMEOUT_MS   0x01
 /* I2C write transaction time-out in milliseconds. */
 #define MPU6050_WRITE_TIMEOUT_MS  0x01
-
+/* Upper limit of calibration counter.             */
 #define CALIBRATION_COUNTER_MAX   5000
 
 /**

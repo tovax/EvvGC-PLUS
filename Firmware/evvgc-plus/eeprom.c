@@ -43,22 +43,27 @@
 /* The beginning of the EEPROM.                        */
 #define EEPROM_START_ADDR       0x00
 
-typedef struct tagEEPROMStruct {
+typedef struct tagEEPROMDataStruct {
   PIDSettings pidSettings[3];       /* 12 bytes */
   PWMOutputStruct pwmOutput[3];     /* 12 bytes */
   MixedInputStruct mixedInput[3];   /* 21 byte  */
   uint8_t sensorSettings[3];        /*  3 bytes */
   InputModeStruct modeSettings[3];  /* 24 bytes */
-  v3d accelBias;                    /* 12 bytes */
-  v3d gyroBias;                     /* 12 bytes */
+  v3d imu1AccelBias;                /* 12 bytes */
+  v3d imu1GyroBias;                 /* 12 bytes */
+#if !defined(USE_ONE_IMU)
+  v3d imu2AccelBias;                /* 12 bytes */
+  v3d imu2GyroBias;                 /* 12 bytes */
+#endif
   uint32_t crc32;                   /*  4 bytes */
-/* TOTAL:                             100 bytes */
-/* Bytes left:                        156 bytes */
-} __attribute__((packed)) EEPROMStruct, *PEEPROMStruct;
+/* TOTAL:                             124 bytes */
+/* Bytes left:                        132 bytes */
+} __attribute__((packed)) EEPROMDataStruct, *PEEPROMDataStruct;
 
 /**
  * Global variables
  */
+/* EMPTY */
 
 /**
  * Local variables
@@ -66,9 +71,9 @@ typedef struct tagEEPROMStruct {
 static size_t dataSizeLeft = 0;
 static uint8_t newAddr;
 static uint8_t *pDataAddr;
-static uint8_t fSkipContinue = 0;
+static uint8_t fSkipContinueSaving = 0;
 
-static EEPROMStruct eepromData;
+static EEPROMDataStruct eepromData;
 static uint8_t eepromTXBuf[EEPROM_24C02_PAGE_SIZE + 1];
 
 /**
@@ -165,6 +170,7 @@ static uint8_t eepromWriteData(uint8_t addr, uint8_t *pData, size_t size) {
 uint8_t eepromLoadSettings(void) {
   msg_t status = RDY_OK;
   uint8_t addr = EEPROM_START_ADDR;
+  i2cflags_t i2c_error = I2CD_NO_ERROR;
 
   i2cAcquireBus(&I2CD2);
   status = i2cMasterTransmitTimeout(&I2CD2, EEPROM_24C02_ADDR, &addr, 1,
@@ -172,9 +178,12 @@ uint8_t eepromLoadSettings(void) {
   i2cReleaseBus(&I2CD2);
 
   if (status != RDY_OK) {
-    g_i2cErrorInfo.last_i2c_error = i2cGetErrors(&I2CD2);
-    if (g_i2cErrorInfo.last_i2c_error) {
+    i2c_error = i2cGetErrors(&I2CD2);
+    if (i2c_error != I2CD_NO_ERROR) {
+      g_i2cErrorInfo.last_i2c_error = i2c_error;
       g_i2cErrorInfo.i2c_error_counter++;
+    } else {
+      g_i2cErrorInfo.i2c_timeout_counter++;
     }
     return 0;
   }
@@ -188,10 +197,13 @@ uint8_t eepromLoadSettings(void) {
     mixedInputSettingsUpdate(eepromData.mixedInput);
     inputModeSettingsUpdate(eepromData.modeSettings);
     sensorSettingsUpdate(eepromData.sensorSettings);
-    accelBiasUpdate(&g_IMU1, &eepromData.accelBias);
-    gyroBiasUpdate(&g_IMU1, &eepromData.gyroBias);
+    accelBiasUpdate(&g_IMU1, &eepromData.imu1AccelBias);
+    gyroBiasUpdate(&g_IMU1, &eepromData.imu1GyroBias);
+#if !defined(USE_ONE_IMU)
+    accelBiasUpdate(&g_IMU2, &eepromData.imu2AccelBias);
+    gyroBiasUpdate(&g_IMU2, &eepromData.imu2GyroBias);
+#endif
   }
-
   return 1;
 }
 
@@ -206,10 +218,14 @@ uint8_t eepromSaveSettings(void) {
   memcpy((void *)eepromData.mixedInput, (void *)g_mixedInput, sizeof(g_mixedInput));
   memcpy((void *)eepromData.modeSettings, (void *)g_modeSettings, sizeof(g_modeSettings));
   memcpy((void *)eepromData.sensorSettings, (void *)g_sensorSettings, sizeof(g_sensorSettings));
-  memcpy((void *)&eepromData.accelBias, (void *)&g_IMU1.accelBias, sizeof(g_IMU1.accelBias));
-  memcpy((void *)&eepromData.gyroBias, (void *)&g_IMU1.gyroBias, sizeof(g_IMU1.gyroBias));
+  memcpy((void *)&eepromData.imu1AccelBias, (void *)&g_IMU1.accelBias, sizeof(g_IMU1.accelBias));
+  memcpy((void *)&eepromData.imu1GyroBias, (void *)&g_IMU1.gyroBias, sizeof(g_IMU1.gyroBias));
+#if !defined(USE_ONE_IMU)
+  memcpy((void *)&eepromData.imu2AccelBias, (void *)&g_IMU2.accelBias, sizeof(g_IMU2.accelBias));
+  memcpy((void *)&eepromData.imu2GyroBias, (void *)&g_IMU2.gyroBias, sizeof(g_IMU2.gyroBias));
+#endif
   eepromData.crc32 = crcCRC32((uint32_t *)&eepromData, sizeof(eepromData) / sizeof(uint32_t) - 1);
-  fSkipContinue = 1;
+  fSkipContinueSaving = 1;
   return eepromWriteData(EEPROM_START_ADDR, (uint8_t *)&eepromData, sizeof(eepromData));
 }
 
@@ -219,8 +235,8 @@ uint8_t eepromSaveSettings(void) {
  *         0 - if write operation fails.
  */
 uint8_t eepromContinueSaving(void) {
-  if (fSkipContinue) {
-    fSkipContinue = 0;
+  if (fSkipContinueSaving) {
+    fSkipContinueSaving = 0;
     return 1;
   }
   return eepromWriteData(newAddr, pDataAddr, dataSizeLeft);

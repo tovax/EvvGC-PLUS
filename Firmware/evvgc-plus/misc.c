@@ -14,6 +14,7 @@
     limitations under the License.
 */
 
+#include "hal.h"
 #include "misc.h"
 
 /* Any non inline misc functions go here. */

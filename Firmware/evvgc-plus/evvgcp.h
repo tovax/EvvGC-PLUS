@@ -23,6 +23,12 @@
 #include "fixvector3d.h"
 #include "fixquat.h"
 
+/**
+ * Global constants
+ */
+/* Earth gravity. */
+#define GRAV                    9.81f
+
 #define IMU1_CALIBRATE_ACC      0x00000008
 #define IMU1_CALIBRATE_GYRO     0x00000010
 #define IMU2_CALIBRATE_ACC      0x00000020
@@ -33,6 +39,9 @@
 
 #define JUMP_TO_ROM_BOOTLOADER  0x01
 
+/**
+ * Global macros
+ */
 #define SYMVAL(sym) (uint32_t)(((uint8_t *)&(sym)) - ((uint8_t *)0))
 
 /* I2C error info structure. */

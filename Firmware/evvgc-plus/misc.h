@@ -17,8 +17,6 @@
 #ifndef _MISC_H_
 #define _MISC_H_
 
-#include "hal.h"
-
 #define constrain(val,min,max)  ((val)<(min)?(min):((val)>(max)?(max):(val)))
 
 #ifdef __cplusplus
